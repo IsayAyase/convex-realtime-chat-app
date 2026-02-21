@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getCurrentClerkUserId, getCurrentUser, isUserInConversation } from "./utils";
 
 export const getOrCreateConversation = mutation({
   args: {
@@ -7,6 +8,14 @@ export const getOrCreateConversation = mutation({
     otherUserId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) throw new Error("Unauthorized");
+
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser || currentUser._id !== args.currentUserId) {
+      throw new Error("Unauthorized");
+    }
+
     const existing = await ctx.db
       .query("conversationMembers")
       .filter((q) => q.eq("userId", args.currentUserId as string))
@@ -51,6 +60,14 @@ export const getOrCreateConversation = mutation({
 export const getConversations = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) return [];
+
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser || currentUser._id !== args.userId) {
+      return [];
+    }
+
     const memberships = await ctx.db
       .query("conversationMembers")
       .filter((q) => q.eq("userId", args.userId as string))
@@ -69,6 +86,12 @@ export const getConversations = query({
 export const getConversationMembers = query({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) return [];
+
+    const hasAccess = await isUserInConversation(ctx, args.conversationId, clerkUserId);
+    if (!hasAccess) return [];
+
     const members = await ctx.db
       .query("conversationMembers")
       .filter((q) => q.eq("conversationId", args.conversationId as string))

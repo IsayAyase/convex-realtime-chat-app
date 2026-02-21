@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getCurrentClerkUserId, getCurrentUser, isUserInConversation } from "./utils";
 
 export const addReaction = mutation({
   args: {
@@ -8,6 +9,20 @@ export const addReaction = mutation({
     emoji: v.string(),
   },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) throw new Error("Unauthorized");
+
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser || currentUser._id !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) throw new Error("Message not found");
+
+    const hasAccess = await isUserInConversation(ctx, message.conversationId, clerkUserId);
+    if (!hasAccess) throw new Error("Unauthorized");
+
     const existing = await ctx.db
       .query("reactions")
       .filter((q) => 
@@ -35,6 +50,15 @@ export const addReaction = mutation({
 export const getReactions = query({
   args: { messageId: v.id("messages") },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) return [];
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) return [];
+
+    const hasAccess = await isUserInConversation(ctx, message.conversationId, clerkUserId);
+    if (!hasAccess) return [];
+
     const reactions = await ctx.db
       .query("reactions")
       .filter((q) => q.eq("messageId", args.messageId as string))
@@ -60,6 +84,17 @@ export const setTyping = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) throw new Error("Unauthorized");
+
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser || currentUser._id !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const hasAccess = await isUserInConversation(ctx, args.conversationId, clerkUserId);
+    if (!hasAccess) throw new Error("Unauthorized");
+
     const existing = await ctx.db
       .query("typing")
       .filter((q) => 
@@ -85,6 +120,12 @@ export const setTyping = mutation({
 export const getTypingUsers = query({
   args: { conversationId: v.id("conversations"), excludeUserId: v.id("users") },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) return [];
+
+    const hasAccess = await isUserInConversation(ctx, args.conversationId, clerkUserId);
+    if (!hasAccess) return [];
+
     const typing = await ctx.db
       .query("typing")
       .filter((q) => q.eq("conversationId", args.conversationId as string))

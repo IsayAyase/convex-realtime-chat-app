@@ -1,7 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getCurrentClerkUserId, getCurrentUser } from "./utils";
 
-export const getCurrentUser = query({
+export const getCurrentUserQuery = query({
   args: { userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     if (!args.userId) return null;
@@ -15,6 +16,9 @@ export const getCurrentUser = query({
 export const getAllUsers = query({
   args: {},
   handler: async (ctx) => {
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser) return [];
+    
     return await ctx.db.query("users").collect();
   },
 });
@@ -34,6 +38,11 @@ export const createOrGetUser = mutation({
     avatar: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId || clerkUserId !== args.userId) {
+      throw new Error("Unauthorized");
+    }
+
     const existing = await ctx.db
       .query("users")
       .filter((q) => q.eq("userId", args.userId))
@@ -59,6 +68,11 @@ export const updateUserByClerkId = mutation({
     avatar: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId || clerkUserId !== args.clerkUserId) {
+      throw new Error("Unauthorized");
+    }
+
     const existing = await ctx.db
       .query("users")
       .filter((q) => q.eq("userId", args.clerkUserId))
@@ -77,6 +91,9 @@ export const updateUserByClerkId = mutation({
 export const searchUsers = query({
   args: { search: v.string() },
   handler: async (ctx, args) => {
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser) return [];
+    
     const allUsers = await ctx.db.query("users").collect();
     if (!args.search) return allUsers;
     
