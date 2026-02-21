@@ -10,7 +10,7 @@ export function UserSync() {
   
   const createOrGetUser = useCreateOrGetUser();
   const updateUser = useUpdateUserByClerkId();
-  const currentUser = useQuery(api.users.getCurrentUser, { userId: user?.id });
+  const currentUser = useQuery(api.users.getCurrentUserQuery, { userId: user?.id });
 
   useEffect(() => {
     if (!isLoaded || !user) return;
