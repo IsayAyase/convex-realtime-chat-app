@@ -12,9 +12,10 @@ export default defineSchema({
   conversations: defineTable({
     type: v.union(v.literal("direct"), v.literal("group")),
     name: v.optional(v.string()),
+    adminUserId: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }),
+  }).index("by_updatedAt", ["updatedAt"]),
 
   conversationMembers: defineTable({
     conversationId: v.id("conversations"),

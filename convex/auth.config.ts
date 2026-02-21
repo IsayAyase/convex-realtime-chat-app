@@ -1,7 +1,7 @@
 export default {
   providers: [
     {
-      domain: process.env.CLERK_FRONTEND_API_URL,
+      domain: "https://frank-mudfish-20.clerk.accounts.dev",
       applicationID: "convex",
     },
   ],

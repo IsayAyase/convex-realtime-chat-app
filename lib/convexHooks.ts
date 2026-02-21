@@ -25,6 +25,22 @@ export function useGetOrCreateConversation() {
   return useMutation(api.conversations.getOrCreateConversation);
 }
 
+export function useCreateGroup() {
+  return useMutation(api.conversations.createGroup);
+}
+
+export function useAddGroupMembers() {
+  return useMutation(api.conversations.addGroupMembers);
+}
+
+export function useRemoveGroupMember() {
+  return useMutation(api.conversations.removeGroupMember);
+}
+
+export function useDeleteGroup() {
+  return useMutation(api.conversations.deleteGroup);
+}
+
 export function useGetConversations(userId: string | undefined) {
   return useQuery(api.conversations.getConversations, { userId: userId as any });
 }
