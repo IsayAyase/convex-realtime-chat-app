@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { getCurrentClerkUserId, getCurrentUser, isUserInConversation } from "./utils";
 
 export const getOrCreateConversation = mutation({
@@ -16,9 +17,44 @@ export const getOrCreateConversation = mutation({
       throw new Error("Unauthorized");
     }
 
+    if (args.currentUserId === args.otherUserId) {
+      const existing = await ctx.db
+        .query("conversationMembers")
+        .withIndex("by_user", (q) => q.eq("userId", args.currentUserId as Id<"users">))
+        .collect();
+
+      for (const member of existing) {
+        const conversation = await ctx.db.get(member.conversationId);
+        if (!conversation || conversation.type !== "direct") continue;
+
+        const otherMembers = await ctx.db
+          .query("conversationMembers")
+          .withIndex("by_conversation", (q) => q.eq("conversationId", member.conversationId))
+          .collect();
+
+        if (otherMembers.length === 1 && otherMembers[0].userId === args.currentUserId) {
+          return member.conversationId;
+        }
+      }
+
+      const conversationId = await ctx.db.insert("conversations", {
+        type: "direct",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      await ctx.db.insert("conversationMembers", {
+        conversationId,
+        userId: args.currentUserId,
+        joinedAt: Date.now(),
+      });
+
+      return conversationId;
+    }
+
     const existing = await ctx.db
       .query("conversationMembers")
-      .filter((q) => q.eq("userId", args.currentUserId as string))
+      .withIndex("by_user", (q) => q.eq("userId", args.currentUserId as Id<"users">))
       .collect();
 
     for (const member of existing) {
@@ -27,7 +63,7 @@ export const getOrCreateConversation = mutation({
 
       const otherMembers = await ctx.db
         .query("conversationMembers")
-        .filter((q) => q.eq("conversationId", member.conversationId as string))
+        .withIndex("by_conversation", (q) => q.eq("conversationId", member.conversationId))
         .collect();
 
       if (otherMembers.some((m) => m.userId === args.otherUserId)) {
@@ -231,30 +267,36 @@ export const deleteGroup = mutation({
 });
 
 export const getConversations = query({
-  args: { userId: v.optional(v.id("users")) },
+  args: { 
+    userId: v.optional(v.id("users")),
+    cursor: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
-    if (!args.userId) return [];
+    if (!args.userId) return { conversations: [], nextCursor: null };
 
     const clerkUserId = await getCurrentClerkUserId(ctx);
-    if (!clerkUserId) return [];
+    if (!clerkUserId) return { conversations: [], nextCursor: null };
 
     const currentUser = await getCurrentUser(ctx);
     if (!currentUser || currentUser._id !== args.userId) {
-      return [];
+      return { conversations: [], nextCursor: null };
     }
+
+    const userId = args.userId as string;
 
     const memberships = await ctx.db
       .query("conversationMembers")
-      .filter((q) => q.eq("userId", args.userId as string))
+      .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
       .collect();
 
-    const conversations = [];
+    const allConversations = [];
     for (const m of memberships) {
       const conv = await ctx.db.get(m.conversationId);
       if (conv) {
         const otherMembers = await ctx.db
           .query("conversationMembers")
-          .filter((q) => q.eq("conversationId", m.conversationId as string))
+          .withIndex("by_conversation", (q) => q.eq("conversationId", m.conversationId))
           .collect();
 
         const memberUsers = [];
@@ -265,11 +307,11 @@ export const getConversations = query({
 
         const latestMessage = await ctx.db
           .query("messages")
-          .filter((q) => q.eq("conversationId", m.conversationId as string))
+          .withIndex("by_conversation", (q) => q.eq("conversationId", m.conversationId))
           .order("desc")
           .take(1);
 
-        conversations.push({
+        allConversations.push({
           ...conv,
           memberUsers,
           latestMessage: latestMessage[0] || null,
@@ -277,7 +319,14 @@ export const getConversations = query({
       }
     }
 
-    return conversations.sort((a, b) => b.updatedAt - a.updatedAt);
+    const sortedConversations = allConversations.sort((a, b) => b.updatedAt - a.updatedAt);
+
+    const limit = args.limit || 15;
+    const cursor = args.cursor || 0;
+    const paginatedConversations = sortedConversations.slice(cursor, cursor + limit);
+    const nextCursor = cursor + limit < sortedConversations.length ? cursor + limit : null;
+
+    return { conversations: paginatedConversations, nextCursor };
   },
 });
 
@@ -292,7 +341,7 @@ export const getConversationMembers = query({
 
     const members = await ctx.db
       .query("conversationMembers")
-      .filter((q) => q.eq("conversationId", args.conversationId as string))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
     const users = [];
@@ -301,5 +350,32 @@ export const getConversationMembers = query({
       if (user) users.push(user);
     }
     return users;
+  },
+});
+
+export const getConversation = query({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) return null;
+
+    const hasAccess = await isUserInConversation(ctx, args.conversationId, clerkUserId);
+    if (!hasAccess) return null;
+
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return null;
+
+    const members = await ctx.db
+      .query("conversationMembers")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+
+    const memberUsers = [];
+    for (const m of members) {
+      const user = await ctx.db.get(m.userId);
+      if (user) memberUsers.push(user);
+    }
+
+    return { ...conversation, memberUsers };
   },
 });

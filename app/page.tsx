@@ -20,7 +20,7 @@ export default function Home() {
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center text-center p-8">
         <h2 className="text-4xl font-bold mb-4">Welcome to Chat App</h2>
-        <p className="text-lg text-gray-600 mb-8 max-w-md">
+        <p className="text-lg text-muted-foreground mb-8 max-w-md">
           Connect with friends and colleagues in real-time. 
           Fast, secure, and simple messaging for everyone.
         </p>

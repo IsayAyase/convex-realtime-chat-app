@@ -8,7 +8,7 @@ export const getCurrentUserQuery = query({
     if (!args.userId) return null;
     return await ctx.db
       .query("users")
-      .filter((q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId!))
       .first();
   },
 });
@@ -45,7 +45,7 @@ export const createOrGetUser = mutation({
 
     const existing = await ctx.db
       .query("users")
-      .filter((q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first();
 
     if (existing) {
@@ -75,7 +75,7 @@ export const updateUserByClerkId = mutation({
 
     const existing = await ctx.db
       .query("users")
-      .filter((q) => q.eq("userId", args.clerkUserId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.clerkUserId))
       .first();
 
     if (!existing) return null;
@@ -89,18 +89,31 @@ export const updateUserByClerkId = mutation({
 });
 
 export const searchUsers = query({
-  args: { search: v.string() },
+  args: { 
+    search: v.optional(v.string()),
+    cursor: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUser(ctx);
-    if (!currentUser) return [];
+    if (!currentUser) return { users: [], nextCursor: null };
     
     const allUsers = await ctx.db.query("users").collect();
-    if (!args.search) return allUsers;
     
-    const searchLower = args.search.toLowerCase();
-    return allUsers.filter((u) => 
-      u.name.toLowerCase().includes(searchLower) ||
-      u.email.toLowerCase().includes(searchLower)
-    );
+    let filteredUsers = allUsers;
+    if (args.search) {
+      const searchLower = args.search.toLowerCase();
+      filteredUsers = allUsers.filter((u) => 
+        u.name.toLowerCase().includes(searchLower) ||
+        u.email.toLowerCase().includes(searchLower)
+      );
+    }
+
+    const limit = args.limit || 15;
+    const cursor = args.cursor || 0;
+    const paginatedUsers = filteredUsers.slice(cursor, cursor + limit);
+    const nextCursor = cursor + limit < filteredUsers.length ? cursor + limit : null;
+
+    return { users: paginatedUsers, nextCursor };
   },
 });

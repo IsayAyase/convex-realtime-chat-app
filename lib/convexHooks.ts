@@ -16,8 +16,8 @@ export function useGetCurrentUser(userId: string | undefined) {
   return useQuery(api.users.getCurrentUserQuery, { userId: userId || undefined });
 }
 
-export function useGetAllUsers() {
-  return useQuery(api.users.getAllUsers);
+export function useSearchUsers(search?: string, cursor?: number, limit?: number) {
+  return useQuery(api.users.searchUsers, { search: search || undefined, cursor, limit });
 }
 
 // Conversation hooks
@@ -41,8 +41,12 @@ export function useDeleteGroup() {
   return useMutation(api.conversations.deleteGroup);
 }
 
-export function useGetConversations(userId: string | undefined) {
-  return useQuery(api.conversations.getConversations, { userId: userId as any });
+export function useGetConversations(userId: string | undefined, cursor?: number, limit?: number) {
+  return useQuery(api.conversations.getConversations, { 
+    userId: userId as any, 
+    cursor, 
+    limit 
+  });
 }
 
 export function useGetConversationMembers(conversationId: string) {
@@ -85,4 +89,8 @@ export function useGetTypingUsers(conversationId: string, excludeUserId: string)
     conversationId: conversationId as any, 
     excludeUserId: excludeUserId as any 
   });
+}
+
+export function useGetConversation(conversationId: string) {
+  return useQuery(api.conversations.getConversation, { conversationId: conversationId as any });
 }
