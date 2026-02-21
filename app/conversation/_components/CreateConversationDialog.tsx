@@ -14,8 +14,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useSearchUsers, useGetOrCreateConversation, useCreateGroup } from "@/lib/convexHooks";
+import {
+  useSearchUsers,
+  useGetOrCreateConversation,
+  useCreateGroup,
+} from "@/lib/convexHooks";
 import { useRouter } from "next/navigation";
+import { Separator } from "@/components/ui/separator";
 
 interface CreateConversationDialogProps {
   open: boolean;
@@ -25,12 +30,57 @@ interface CreateConversationDialogProps {
 
 const USERS_LIMIT = 15;
 
-export function CreateConversationDialog({ open, onOpenChange, currentUser }: CreateConversationDialogProps) {
+interface UserSelectItemProps {
+  user: any;
+  isSelected: boolean;
+  isCurrentUser?: boolean;
+  onToggle: (userId: string) => void;
+}
+
+function UserSelectItem({
+  user,
+  isSelected,
+  isCurrentUser,
+  onToggle,
+}: UserSelectItemProps) {
+  return (
+    <div
+      onClick={() => onToggle(user._id)}
+      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent mb-1 ${
+        isSelected ? "bg-secondary" : ""
+      }`}
+    >
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={() => onToggle(user._id)}
+      />
+      <Avatar className="w-8 h-8">
+        <AvatarImage src={user.avatar} />
+        <AvatarFallback className="text-xs">
+          {user.name?.charAt(0)}
+        </AvatarFallback>
+      </Avatar>
+      <div>
+        <p className="font-medium text-sm">
+          {user.name}
+          {isCurrentUser && " (You)"}
+        </p>
+        <p className="text-xs text-muted-foreground">{user.email}</p>
+      </div>
+    </div>
+  );
+}
+
+export function CreateConversationDialog({
+  open,
+  onOpenChange,
+  currentUser,
+}: CreateConversationDialogProps) {
   const [userSearch, setUserSearch] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [showGroupNameDialog, setShowGroupNameDialog] = useState(false);
   const [groupName, setGroupName] = useState("");
-  
+
   const [userCursor, setUserCursor] = useState<number | undefined>(0);
   const [hasMoreUsers, setHasMoreUsers] = useState(true);
 
@@ -46,10 +96,10 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
   const selfUser = currentUser;
 
   const handleUserToggle = (userId: string) => {
-    setSelectedMembers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
+    setSelectedMembers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
     );
   };
 
@@ -79,7 +129,8 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
   };
 
   const handleCreateGroup = async () => {
-    if (!groupName.trim() || selectedMembers.length < 1 || !currentUser?._id) return;
+    if (!groupName.trim() || selectedMembers.length < 1 || !currentUser?._id)
+      return;
 
     const uniqueMembers = [...new Set([currentUser._id, ...selectedMembers])];
 
@@ -113,14 +164,17 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          className="sm:max-w-md"
+          aria-description="Create a new conversation"
+        >
           <DialogHeader>
             <DialogTitle>New Conversation</DialogTitle>
           </DialogHeader>
-          
+
           <div className="py-4">
-            <Input 
-              placeholder="Search users..." 
+            <Input
+              placeholder="Search users..."
               value={userSearch}
               onChange={(e) => {
                 setUserSearch(e.target.value);
@@ -129,11 +183,8 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
               }}
               className="mb-4"
             />
-            
-            <ScrollArea 
-              className="h-64"
-              onScroll={handleScroll}
-            >
+
+            <ScrollArea className="h-64" onScroll={handleScroll}>
               {isLoadingUsers ? (
                 <div className="flex justify-center p-4">
                   <LoadingSpinner />
@@ -145,47 +196,23 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
               ) : (
                 <>
                   {selfUser && (
-                    <div
-                      onClick={() => handleUserToggle(selfUser._id)}
-                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent mb-2 ${
-                        selectedMembers.includes(selfUser._id) ? "bg-secondary" : ""
-                      }`}
-                    >
-                      <Checkbox 
-                        checked={selectedMembers.includes(selfUser._id)}
-                        onCheckedChange={() => handleUserToggle(selfUser._id)}
-                      />
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={selfUser.avatar} />
-                        <AvatarFallback className="text-xs">{selfUser.name?.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{selfUser.name} (You)</p>
-                        <p className="text-xs text-muted-foreground">{selfUser.email}</p>
-                      </div>
-                    </div>
+                    <UserSelectItem
+                      user={selfUser}
+                      isSelected={selectedMembers.includes(selfUser._id)}
+                      isCurrentUser={true}
+                      onToggle={handleUserToggle}
+                    />
                   )}
+                  
+                  <Separator className="mb-1" />
+
                   {filteredUsers.map((user: any) => (
-                    <div
+                    <UserSelectItem
                       key={user._id}
-                      onClick={() => handleUserToggle(user._id)}
-                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent ${
-                        selectedMembers.includes(user._id) ? "bg-secondary" : ""
-                      }`}
-                    >
-                      <Checkbox 
-                        checked={selectedMembers.includes(user._id)}
-                        onCheckedChange={() => handleUserToggle(user._id)}
-                      />
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={user.avatar} />
-                        <AvatarFallback className="text-xs">{user.name?.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">{user.email}</p>
-                      </div>
-                    </div>
+                      user={user}
+                      isSelected={selectedMembers.includes(user._id)}
+                      onToggle={handleUserToggle}
+                    />
                   ))}
                   {hasMoreUsers && !userSearch && (
                     <div className="p-2 flex justify-center">
@@ -199,19 +226,24 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
             </ScrollArea>
 
             <p className="text-sm text-muted-foreground mt-2">
-                {selectedMembers.length} selected {selectedMembers.length >= 2 && "(group)"}
-              </p>
+              {selectedMembers.length} selected{" "}
+              {selectedMembers.length >= 2 && "(group)"}
+            </p>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleCreate}
               disabled={selectedMembers.length === 0}
             >
-              {selectedMembers.length === 1 ? "Start Chat" : selectedMembers.length >= 2 ? "Start Group" : "Select"}
+              {selectedMembers.length === 1
+                ? "Start Chat"
+                : selectedMembers.length >= 2
+                  ? "Start Group"
+                  : "Select"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -222,10 +254,10 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
           <DialogHeader>
             <DialogTitle>Create Group</DialogTitle>
           </DialogHeader>
-          
+
           <div className="py-4">
-            <Input 
-              placeholder="Group name" 
+            <Input
+              placeholder="Group name"
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
             />
@@ -235,13 +267,13 @@ export function CreateConversationDialog({ open, onOpenChange, currentUser }: Cr
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGroupNameDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowGroupNameDialog(false)}
+            >
               Cancel
             </Button>
-            <Button 
-              onClick={handleCreateGroup}
-              disabled={!groupName.trim()}
-            >
+            <Button onClick={handleCreateGroup} disabled={!groupName.trim()}>
               Create Group
             </Button>
           </DialogFooter>

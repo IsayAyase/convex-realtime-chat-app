@@ -25,13 +25,9 @@ export const addReaction = mutation({
 
     const existing = await ctx.db
       .query("reactions")
-      .filter((q) => 
-        q.and(
-          q.eq("messageId", args.messageId as string),
-          q.eq("userId", args.userId as string),
-          q.eq("emoji", args.emoji)
-        )
-      )
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .filter((q) => q.eq("userId", args.userId as string))
+      .filter((q) => q.eq("emoji", args.emoji))
       .first();
 
     if (existing) {
@@ -61,7 +57,7 @@ export const getReactions = query({
 
     const reactions = await ctx.db
       .query("reactions")
-      .filter((q) => q.eq("messageId", args.messageId as string))
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
       .collect();
     
     const grouped: Record<string, { emoji: string; count: number; userIds: string[] }> = {};
@@ -97,12 +93,8 @@ export const setTyping = mutation({
 
     const existing = await ctx.db
       .query("typing")
-      .filter((q) => 
-        q.and(
-          q.eq("conversationId", args.conversationId as string),
-          q.eq("userId", args.userId as string)
-        )
-      )
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .filter((q) => q.eq("userId", args.userId as string))
       .first();
 
     if (existing) {
@@ -118,7 +110,7 @@ export const setTyping = mutation({
 });
 
 export const getTypingUsers = query({
-  args: { conversationId: v.id("conversations"), excludeUserId: v.id("users") },
+  args: { conversationId: v.id("conversations"), excludeUserId: v.optional(v.id("users")) },
   handler: async (ctx, args) => {
     const clerkUserId = await getCurrentClerkUserId(ctx);
     if (!clerkUserId) return [];
@@ -128,7 +120,7 @@ export const getTypingUsers = query({
 
     const typing = await ctx.db
       .query("typing")
-      .filter((q) => q.eq("conversationId", args.conversationId as string))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
     const now = Date.now();

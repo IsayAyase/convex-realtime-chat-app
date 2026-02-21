@@ -24,6 +24,61 @@ interface SidebarProps {
 
 const CONVERSATIONS_LIMIT = 15;
 
+interface ConversationItemProps {
+  conversation: any;
+  currentUserId: string;
+  isActive: boolean;
+}
+
+function ConversationItem({ conversation, currentUserId, isActive }: ConversationItemProps) {
+  const getConversationName = () => {
+    if (conversation.type === "group") return conversation.name;
+    const otherMember = conversation.memberUsers?.find((u: any) => u.userId !== currentUserId);
+    if (otherMember) return otherMember.name;
+    const selfMember = conversation.memberUsers?.find((u: any) => u.userId === currentUserId);
+    if (selfMember) return `${selfMember.name} (You)`;
+    return "Chat";
+  };
+
+  const getConversationAvatar = () => {
+    if (conversation.type === "group") return null;
+    const otherMember = conversation.memberUsers?.find((u: any) => u.userId !== currentUserId);
+    if (otherMember) return otherMember.avatar;
+    const selfMember = conversation.memberUsers?.find((u: any) => u.userId === currentUserId);
+    return selfMember?.avatar;
+  };
+
+  return (
+    <Link
+      key={conversation._id}
+      href={`/conversation/${conversation._id}`}
+      className={`px-4 py-2 hover:bg-accent cursor-pointer flex items-center gap-3 ${
+        isActive ? "bg-muted/50" : ""
+      }`}
+    >
+      <Avatar>
+        <AvatarImage src={getConversationAvatar() || undefined} />
+        <AvatarFallback>
+          {getConversationName()?.charAt(0) || "?"}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <p className="font-medium truncate">
+            {getConversationName()}
+          </p>
+          {conversation.type === "group" && (
+            <Badge variant="secondary">Group</Badge>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground truncate">
+          {conversation.latestMessage?.content || "No messages yet"}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
 export function Sidebar({ userId, currentUser }: SidebarProps) {
   const [conversationSearch, setConversationSearch] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -56,23 +111,6 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
       : conv.memberUsers?.find((u: any) => u.userId !== userId)?.name || "";
     return name.toLowerCase().includes(conversationSearch.toLowerCase());
   }) || [];
-
-  const getConversationName = (conv: any) => {
-    if (conv.type === "group") return conv.name;
-    const otherMember = conv.memberUsers?.find((u: any) => u.userId !== userId);
-    if (otherMember) return otherMember.name;
-    const selfMember = conv.memberUsers?.find((u: any) => u.userId === userId);
-    if (selfMember) return `${selfMember.name} (You)`;
-    return "Chat";
-  };
-
-  const getConversationAvatar = (conv: any) => {
-    if (conv.type === "group") return null;
-    const otherMember = conv.memberUsers?.find((u: any) => u.userId !== userId);
-    if (otherMember) return otherMember.avatar;
-    const selfMember = conv.memberUsers?.find((u: any) => u.userId === userId);
-    return selfMember?.avatar;
-  };
 
   const isActive = (convId: string) => pathname === `/conversation/${convId}`;
 
@@ -119,33 +157,12 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
         ) : (
           <>
             {filteredConversations.map((conv: any) => (
-              <Link
+              <ConversationItem
                 key={conv._id}
-                href={`/conversation/${conv._id}`}
-                className={`p-4 hover:bg-accent cursor-pointer flex items-center gap-3 ${
-                  isActive(conv._id) ? "bg-accent" : ""
-                }`}
-              >
-                <Avatar>
-                  <AvatarImage src={getConversationAvatar(conv) || undefined} />
-                  <AvatarFallback>
-                    {getConversationName(conv)?.charAt(0) || "?"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium truncate">
-                      {getConversationName(conv)}
-                    </p>
-                    {conv.type === "group" && (
-                      <Badge variant="secondary">Group</Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {conv.latestMessage?.content || "No messages yet"}
-                  </p>
-                </div>
-              </Link>
+                conversation={conv}
+                currentUserId={userId}
+                isActive={isActive(conv._id)}
+              />
             ))}
             {hasMoreConversations && !conversationSearch && (
               <div className="p-2 flex justify-center">

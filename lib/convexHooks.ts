@@ -84,10 +84,10 @@ export function useSetTyping() {
   return useMutation(api.reactions.setTyping);
 }
 
-export function useGetTypingUsers(conversationId: string, excludeUserId: string) {
+export function useGetTypingUsers(conversationId: string, excludeUserId?: string) {
   return useQuery(api.reactions.getTypingUsers, { 
     conversationId: conversationId as any, 
-    excludeUserId: excludeUserId as any 
+    excludeUserId: (excludeUserId || undefined) as any 
   });
 }
 

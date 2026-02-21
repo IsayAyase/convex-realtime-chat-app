@@ -32,7 +32,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const messages = useGetMessages(conversationId);
   const sendMessage = useSendMessage();
   const setTyping = useSetTyping();
-  const typingUsers = useGetTypingUsers(conversationId, currentUserId || "");
+  const typingUsers = useGetTypingUsers(conversationId, currentUserId);
   const addReaction = useAddReaction();
   const deleteMessage = useDeleteMessage();
   const members = useGetConversationMembers(conversationId);

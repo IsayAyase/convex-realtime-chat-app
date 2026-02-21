@@ -121,12 +121,6 @@ export const createGroup = mutation({
       updatedAt: Date.now(),
     });
 
-    await ctx.db.insert("conversationMembers", {
-      conversationId,
-      userId: args.currentUserId,
-      joinedAt: Date.now(),
-    });
-
     for (const memberId of args.memberIds) {
       await ctx.db.insert("conversationMembers", {
         conversationId,
@@ -162,7 +156,7 @@ export const addGroupMembers = mutation({
 
     const currentMembers = await ctx.db
       .query("conversationMembers")
-      .filter((q) => q.eq("conversationId", args.conversationId as string))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
     if (currentMembers.length + args.memberIds.length > 20) {
@@ -172,12 +166,8 @@ export const addGroupMembers = mutation({
     for (const memberId of args.memberIds) {
       const existing = await ctx.db
         .query("conversationMembers")
-        .filter((q) => 
-          q.and(
-            q.eq("conversationId", args.conversationId as string),
-            q.eq("userId", memberId as string)
-          )
-        )
+        .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+        .filter((q) => q.eq("userId", memberId as string))
         .first();
 
       if (!existing) {
@@ -219,12 +209,8 @@ export const removeGroupMember = mutation({
 
     const membership = await ctx.db
       .query("conversationMembers")
-      .filter((q) => 
-        q.and(
-          q.eq("conversationId", args.conversationId as string),
-          q.eq("userId", args.memberId as string)
-        )
-      )
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .filter((q) => q.eq("userId", args.memberId as string))
       .first();
 
     if (membership) {
@@ -255,7 +241,7 @@ export const deleteGroup = mutation({
 
     const members = await ctx.db
       .query("conversationMembers")
-      .filter((q) => q.eq("conversationId", args.conversationId as string))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
     for (const member of members) {

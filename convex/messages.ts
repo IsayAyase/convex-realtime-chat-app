@@ -13,7 +13,7 @@ export const getMessages = query({
 
     return await ctx.db
       .query("messages")
-      .filter((q) => q.eq("conversationId", args.conversationId as string))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .order("asc")
       .collect();
   },
@@ -75,7 +75,7 @@ export const getLatestMessage = query({
 
     const messages = await ctx.db
       .query("messages")
-      .filter((q) => q.eq("conversationId", args.conversationId as string))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .order("desc")
       .take(1);
     return messages[0] || null;
