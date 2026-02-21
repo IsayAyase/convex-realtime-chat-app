@@ -13,7 +13,7 @@ export function useUpdateUserByClerkId() {
 }
 
 export function useGetCurrentUser(userId: string | undefined) {
-  return useQuery(api.users.getCurrentUser, { userId: userId || undefined });
+  return useQuery(api.users.getCurrentUserQuery, { userId: userId || undefined });
 }
 
 export function useGetAllUsers() {
