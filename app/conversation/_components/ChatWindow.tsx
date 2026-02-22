@@ -363,7 +363,10 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
               {conversation?.type === "direct" && otherUserPresence && (
                 <span
                   className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-background ${
-                    otherUserPresence.online && (Date.now() - (otherUserPresence.lastSeen || 0) < 10000) ? "bg-emerald-500" : "bg-muted-foreground"
+                    otherUserPresence.online &&
+                    Date.now() - (otherUserPresence.lastSeen || 0) < 10000
+                      ? "bg-emerald-500"
+                      : "bg-muted-foreground"
                   }`}
                 />
               )}
@@ -372,7 +375,12 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
               <h2 className="font-semibold">{chatName}</h2>
               {conversation?.type === "direct" && otherUserPresence && (
                 <span className="text-xs text-muted-foreground">
-                  {otherUserPresence.online && (Date.now() - (otherUserPresence.lastSeen || 0) < 10000) ? "Online" : otherUserPresence.lastSeen ? `Last seen ${new Date(otherUserPresence.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Offline"}
+                  {otherUserPresence.online &&
+                  Date.now() - (otherUserPresence.lastSeen || 0) < 10000
+                    ? "Online"
+                    : otherUserPresence.lastSeen
+                      ? `Last seen ${new Date(otherUserPresence.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                      : "Offline"}
                 </span>
               )}
             </div>
@@ -422,6 +430,8 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                     key={msg._id}
                     message={msg}
                     currentUserId={currentUserId}
+                    isGroup={conversation?.type === "group"}
+                    members={members || []}
                     isHovered={hoveredMessage === msg._id}
                     isActionOpen={openActionMessage === msg._id}
                     onMouseEnter={() => {
@@ -442,19 +452,24 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
             )}
           </>
         )}
-
-        {typingText && <TypingMessageBubble />}
       </div>
 
       {/* Input area */}
-      <div className="p-4 border-t flex gap-2">
-        <Input
-          placeholder="Type a message..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-        />
-        <Button onClick={handleSend}>Send</Button>
+      <div className="p-4 pt-6 border-t relative">
+        {typingText && (
+          <span className="text-xs text-muted-foreground ml-1 my-1 absolute top-0">
+            {typingText}
+          </span>
+        )}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Type a message..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          />
+          <Button onClick={handleSend}>Send</Button>
+        </div>
       </div>
     </div>
   );
@@ -473,6 +488,8 @@ function DateSeparator({ date }: { date: number }) {
 interface MessageBubbleProps {
   message: any;
   currentUserId?: string;
+  isGroup: boolean;
+  members: any;
   isHovered: boolean;
   isActionOpen: boolean;
   onMouseEnter: () => void;
@@ -486,6 +503,8 @@ interface MessageBubbleProps {
 function MessageBubble({
   message,
   currentUserId,
+  isGroup,
+  members,
   isHovered,
   isActionOpen,
   onMouseEnter,
@@ -503,6 +522,10 @@ function MessageBubble({
 
   const isOwn = message.senderId === currentUserId;
   const isDeleted = message.deleted;
+
+  const sender = members?.find((m: any) => m._id === message.senderId);
+  const senderName = sender?.name || "Unknown";
+  const senderAvatar = sender?.avatar;
 
   const currentUserReaction = useMemo(() => {
     if (!reactions || !currentUserId) return undefined;
@@ -564,53 +587,72 @@ function MessageBubble({
           </div>
         )}
 
-        <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
+        <div
+          className={`flex items-start gap-2 ${isOwn ? "justify-end" : "justify-start"}`}
+        >
+          {!isOwn && isGroup && (
+            <Avatar className="size-5 mt-1">
+              <AvatarImage src={senderAvatar || undefined} />
+              <AvatarFallback>{senderName?.charAt(0) || "?"}</AvatarFallback>
+            </Avatar>
+          )}
           <div
-            className={`px-3 py-1 rounded-sm w-full ${
-              isOwn ? "bg-primary text-primary-foreground" : "bg-background"
-            }`}
+            className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}
           >
-            {isDeleted ? (
-              <p
-                className={`text-sm italic ${
-                  isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
-                }`}
-              >
-                This message was deleted
-              </p>
-            ) : (
-              <>
-                <p className="text-sm">{message.content}</p>
+            <div
+              className={`px-3 ${isGroup && !isOwn ? "pb-1" : "py-1"} rounded-sm w-full lg:max-w-md ${
+                isOwn ? "bg-primary text-primary-foreground" : "bg-background"
+              }`}
+            >
+              {isGroup && !isOwn && (
+                <span className={`text-xs font-medium text-foreground text-start`}>
+                  {senderName}
+                </span>
+              )}
+              {isDeleted ? (
                 <p
-                  className={`text-[10px] text-end ${
+                  className={`text-sm italic ${
                     isOwn
                       ? "text-primary-foreground/70"
                       : "text-muted-foreground"
                   }`}
                 >
-                  {new Date(message.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  This message was deleted
                 </p>
-              </>
+              ) : (
+                <>
+                  <p className="text-sm">{message.content}</p>
+                  <p
+                    className={`text-[10px] text-end ${
+                      isOwn
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {new Date(message.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Reaction pills */}
+            {reactions && reactions.length > 0 && (
+              <div className="flex gap-1 mt-1 flex-wrap">
+                {reactions.map((r: any, idx: number) => (
+                  <span
+                    key={idx}
+                    className="text-xs bg-background border rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-accent"
+                    onClick={() => onReaction(message._id, r.emoji)}
+                  >
+                    {r.emoji} {r.count}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
-
-          {/* Reaction pills */}
-          {reactions && reactions.length > 0 && (
-            <div className="flex gap-1 mt-1 flex-wrap">
-              {reactions.map((r: any, idx: number) => (
-                <span
-                  key={idx}
-                  className="text-xs bg-background border rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-accent"
-                  onClick={() => onReaction(message._id, r.emoji)}
-                >
-                  {r.emoji} {r.count}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -652,29 +694,6 @@ function ReactionPicker({
           {emoji}
         </button>
       ))}
-    </div>
-  );
-}
-
-function TypingMessageBubble() {
-  return (
-    <div className="mb-2 text-left">
-      <div className="inline-block px-2 py-1 rounded-lg bg-background">
-        <div className="flex gap-1 h-8 items-center">
-          <span
-            className="size-1.5 bg-muted-foreground rounded-full animate-bounce"
-            style={{ animationDelay: "0ms" }}
-          />
-          <span
-            className="size-1.5 bg-muted-foreground rounded-full animate-bounce"
-            style={{ animationDelay: "150ms" }}
-          />
-          <span
-            className="size-1.5 bg-muted-foreground rounded-full animate-bounce"
-            style={{ animationDelay: "300ms" }}
-          />
-        </div>
-      </div>
     </div>
   );
 }

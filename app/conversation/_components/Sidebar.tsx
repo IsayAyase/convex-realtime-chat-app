@@ -2,13 +2,12 @@
 
 import { LoadingSpinner } from "@/components/loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGetConversations } from "@/lib/convexHooks";
 import { UserButton } from "@clerk/nextjs";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -25,6 +24,26 @@ interface ConversationItemProps {
   conversation: any;
   currentUserId: string;
   isActive: boolean;
+}
+
+function formatMessageTime(timestamp: number): string {
+  const msgDate = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const msgDay = msgDate.toDateString();
+  const todayDay = today.toDateString();
+  const yesterdayDay = yesterday.toDateString();
+
+  if (msgDay === todayDay) {
+    return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (msgDay === yesterdayDay) {
+    return "Yesterday";
+  }
+
+  return msgDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 function ConversationItem({
@@ -65,19 +84,28 @@ function ConversationItem({
         isActive ? "bg-muted/50" : ""
       }`}
     >
-      <Avatar>
-        <AvatarImage src={getConversationAvatar() || undefined} />
-        <AvatarFallback>
-          {getConversationName()?.charAt(0) || "?"}
-        </AvatarFallback>
-      </Avatar>
+      <div className="relative">
+        <Avatar>
+          <AvatarImage src={getConversationAvatar() || undefined} />
+          <AvatarFallback>
+            {getConversationName()?.charAt(0) || "?"}
+          </AvatarFallback>
+        </Avatar>
+        {conversation.type === "group" && (
+          <span className="absolute bottom-0 right-0 bg-foreground rounded-full p-0.5">
+            <Users className="size-2.5 text-background" />
+          </span>
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <p className="font-medium truncate max-w-60">
             {getConversationName()}
           </p>
-          {conversation.type === "group" && (
-            <Badge variant="secondary">Group</Badge>
+          {conversation.latestMessage?.createdAt && (
+            <span className="text-xs text-muted-foreground shrink-0 ml-2">
+              {formatMessageTime(conversation.latestMessage.createdAt)}
+            </span>
           )}
         </div>
         <p className="text-sm text-muted-foreground truncate max-w-60">
