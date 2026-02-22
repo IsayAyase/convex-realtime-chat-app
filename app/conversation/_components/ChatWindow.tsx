@@ -27,19 +27,35 @@ const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
 export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const [message, setMessage] = useState("");
-  const [allMessages, setAllMessages] = useState<any[]>([]);
+  const [loadedMessages, setLoadedMessages] = useState<any[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingSetRef = useRef(false);
-  const prevScrollHeightRef = useRef(0);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
   
   const messageData = useGetMessages(conversationId, cursor ?? undefined, 15);
-  const sendMessage = useSendMessage();
+  
+  useEffect(() => {
+    if (!messageData) return;
+    
+    const newMessages = messageData.messages;
+    
+    setLoadedMessages(prev => {
+      const existingIds = new Set(prev.map(m => m._id));
+      const uniqueNew = newMessages.filter(m => !existingIds.has(m._id));
+      if (uniqueNew.length === 0) return prev;
+      
+      if (!cursor) {
+        return [...prev, ...uniqueNew];
+      }
+      return [...uniqueNew, ...prev];
+    });
+  }, [messageData, cursor]);
+  
+  const messages = loadedMessages;
+  const hasMore = !!messageData?.continueCursor;
+  const isLoading = !messageData;
   const setTyping = useSetTyping();
   const clearTyping = useClearTyping();
   
@@ -49,58 +65,29 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const members = useGetConversationMembers(conversationId);
   const conversation = useGetConversation(conversationId);
   const { userId: clerkUserId } = useAuth();
+  const sendMessage = useSendMessage();
 
-  const isLoading = !messageData;
-
-  useEffect(() => {
-    if (!messageData) return;
-
-    if (isInitialLoad) {
-      setAllMessages(messageData.messages);
-      setIsInitialLoad(false);
-    } else if (cursor && messageData.messages.length > 0) {
-      if (scrollRef.current) {
-        prevScrollHeightRef.current = scrollRef.current.scrollHeight;
-      }
-      setAllMessages(prev => {
-        const existingIds = new Set(prev.map(m => m._id));
-        const newMessages = messageData.messages.filter(m => !existingIds.has(m._id));
-        return [...newMessages, ...prev];
-      });
-    } else if (!cursor && messageData.messages.length > 0) {
-      setAllMessages(prev => {
-        const existingIds = new Set(prev.map(m => m._id));
-        const newMessages = messageData.messages.filter(m => !existingIds.has(m._id));
-        return [...prev, ...newMessages];
-      });
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current || !hasMore) return;
+    
+    const { scrollTop } = scrollRef.current;
+    
+    if (scrollTop < 200 && messageData?.continueCursor) {
+      setCursor(messageData.continueCursor);
     }
-
-    setCursor(messageData.continueCursor);
-    setHasMore(!!messageData.continueCursor);
-    setIsLoadingMore(false);
-  }, [messageData, cursor, isInitialLoad]);
+  }, [hasMore, messageData]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
-
-    if (allMessages.length > 0) {
+    // Only scroll to bottom on initial load, not when loading more
+    if (messages.length > 0 && !cursor) {
       requestAnimationFrame(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
       });
     }
-  }, [allMessages]);
-
-  const handleScroll = useCallback(() => {
-    if (!scrollRef.current || !hasMore || isLoadingMore || isInitialLoad) return;
-    
-    const { scrollTop } = scrollRef.current;
-    if (scrollTop < 100 && cursor) {
-      setIsLoadingMore(true);
-      setCursor(cursor);
-    }
-  }, [hasMore, isLoadingMore, cursor, isInitialLoad]);
+  }, [messages, cursor]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -142,7 +129,6 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
       content: message,
     });
     setMessage("");
-    setCursor(null);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     if (isTypingSetRef.current) {
       isTypingSetRef.current = false;
@@ -224,20 +210,15 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
         ref={scrollRef}
         onScroll={handleScroll}
       >
-        {isLoading && allMessages.length === 0 ? (
+        {isLoading && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <LoadingSpinner />
           </div>
-        ) : allMessages.length === 0 ? (
+        ) : messages.length === 0 ? (
           <p className="text-muted-foreground text-center">No messages yet</p>
         ) : (
           <>
-            {isLoadingMore && (
-              <div className="flex justify-center py-2">
-                <LoadingSpinner />
-              </div>
-            )}
-            {allMessages.map((msg: any) => (
+            {messages.map((msg: any) => (
               <MessageBubble
                 key={msg._id}
                 message={msg}
