@@ -3,7 +3,14 @@
 import { LoadingSpinner } from "@/components/loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { GroupMembersDialog } from "./GroupMembersDialog";
 import {
   useAddReaction,
   useClearTyping,
@@ -19,7 +26,7 @@ import {
   useSetOnline,
   useSetTyping,
 } from "@/lib/convexHooks";
-import { ArrowLeft, Smile, Trash2 } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Smile, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -29,6 +36,54 @@ interface ChatWindowProps {
 }
 
 const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
+
+interface ChatOptionsProps {
+  conversation: any;
+  currentUserId?: string;
+  onModeChange: (mode: "view" | "add" | "remove" | null) => void;
+}
+
+function ChatOptions({ conversation, currentUserId, onModeChange }: ChatOptionsProps) {
+  const isGroup = conversation?.type === "group";
+  const isAdmin = conversation?.adminUserId === currentUserId;
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {isGroup && (
+          <>
+            <DropdownMenuItem onClick={() => onModeChange("view")}>
+              List People
+            </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuItem onClick={() => onModeChange("add")}>
+                  Add People
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onModeChange("remove")}>
+                  Remove People
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive">
+                  Delete Group
+                </DropdownMenuItem>
+              </>
+            )}
+          </>
+        )}
+        {!isGroup && (
+          <DropdownMenuItem className="text-destructive">
+            Delete Conversation
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function getDateLabel(timestamp: number): string {
   const msgDate = new Date(timestamp);
@@ -73,6 +128,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const [openActionMessage, setOpenActionMessage] = useState<string | null>(
     null,
   );
+  const [chatOptionsMode, setChatOptionsMode] = useState<"view" | "add" | "remove" | null>(null);
   // Track whether this is the very first load so we can auto-scroll to bottom once
   const initialScrollDoneRef = useRef(false);
 
@@ -357,7 +413,14 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                         ? `Last seen ${new Date(otherUserPresence.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                         : "Offline"}
                   </span>
-                )}
+                  )}
+            </div>
+            <div className="ml-auto">
+              <ChatOptions 
+                conversation={conversation} 
+                currentUserId={currentUserId}
+                onModeChange={setChatOptionsMode}
+              />
             </div>
           </>
         )}
@@ -397,8 +460,8 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                       key={`date-${msg._id}`}
                       date={msg.createdAt}
                     />,
-                  );
-                }
+  );
+}
 
                 acc.push(
                   <MessageBubble
@@ -446,6 +509,16 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
           <Button onClick={handleSend}>Send</Button>
         </div>
       </div>
+
+      {chatOptionsMode && (
+        <GroupMembersDialog
+          open={!!chatOptionsMode}
+          onOpenChange={(open) => !open && setChatOptionsMode(null)}
+          conversationId={conversationId}
+          currentUserId={currentUserId}
+          mode={chatOptionsMode}
+        />
+      )}
     </div>
   );
 }

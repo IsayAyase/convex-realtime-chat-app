@@ -42,6 +42,10 @@ export function useDeleteGroup() {
   return useMutation(api.conversations.deleteGroup);
 }
 
+export function useDeleteConversation() {
+  return useMutation(api.conversations.deleteConversation);
+}
+
 export function useGetConversations(userId: string | undefined, cursor?: number, limit?: number) {
   return useQuery(api.conversations.getConversations, { 
     userId: userId as any, 

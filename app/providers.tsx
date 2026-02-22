@@ -1,6 +1,7 @@
 "use client";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { UserSync } from "@/components/user-sync";
 import { convex } from "@/lib/convex";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
@@ -19,6 +20,7 @@ export function Providers({ children }: { children: ReactNode }) {
           disableTransitionOnChange
         >
           {children}
+          <Toaster />
         </ThemeProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>

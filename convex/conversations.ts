@@ -252,6 +252,39 @@ export const deleteGroup = mutation({
   },
 });
 
+export const deleteConversation = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) throw new Error("Unauthorized");
+
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser) throw new Error("Unauthorized");
+
+    const members = await ctx.db
+      .query("conversationMembers")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+
+    const isMember = members.some((m) => m.userId === currentUser._id);
+    if (!isMember) {
+      throw new Error("Not a member of this conversation");
+    }
+
+    const ownMembership = members.find((m) => m.userId === currentUser._id);
+    if (ownMembership) {
+      await ctx.db.delete(ownMembership._id);
+    }
+  },
+});
+
 export const getConversations = query({
   args: { 
     userId: v.optional(v.id("users")),
