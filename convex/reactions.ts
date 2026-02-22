@@ -91,20 +91,62 @@ export const setTyping = mutation({
     const hasAccess = await isUserInConversation(ctx, args.conversationId, clerkUserId);
     if (!hasAccess) throw new Error("Unauthorized");
 
+    const now = Date.now();
+    const allTyping = await ctx.db
+      .query("typing")
+      .withIndex("by_conversation_user", (q) => 
+        q.eq("conversationId", args.conversationId)
+      )
+      .collect();
+    
+    for (const t of allTyping) {
+      if (t.expiresAt <= now) {
+        await ctx.db.delete(t._id);
+      }
+    }
+
     const existing = await ctx.db
       .query("typing")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
-      .filter((q) => q.eq("userId", args.userId as string))
+      .withIndex("by_conversation_user", (q) => 
+        q.eq("conversationId", args.conversationId).eq("userId", args.userId)
+      )
       .first();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { expiresAt: Date.now() + 3000 });
+      await ctx.db.patch(existing._id, { expiresAt: Date.now() + 4000 });
     } else {
       await ctx.db.insert("typing", {
         conversationId: args.conversationId,
         userId: args.userId,
-        expiresAt: Date.now() + 3000,
+        expiresAt: Date.now() + 4000,
       });
+    }
+  },
+});
+
+export const clearTyping = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const clerkUserId = await getCurrentClerkUserId(ctx);
+    if (!clerkUserId) return;
+
+    const currentUser = await getCurrentUser(ctx);
+    if (!currentUser || currentUser._id !== args.userId) {
+      return;
+    }
+
+    const existing = await ctx.db
+      .query("typing")
+      .withIndex("by_conversation_user", (q) => 
+        q.eq("conversationId", args.conversationId).eq("userId", args.userId)
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
     }
   },
 });
@@ -120,7 +162,9 @@ export const getTypingUsers = query({
 
     const typing = await ctx.db
       .query("typing")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversation_user", (q) => 
+        q.eq("conversationId", args.conversationId)
+      )
       .collect();
 
     const now = Date.now();

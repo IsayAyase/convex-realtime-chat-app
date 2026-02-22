@@ -50,5 +50,5 @@ export default defineSchema({
     conversationId: v.id("conversations"),
     userId: v.id("users"),
     expiresAt: v.number(),
-  }).index("by_conversation", ["conversationId"]),
+  }).index("by_conversation_user", ["conversationId", "userId"]),
 });

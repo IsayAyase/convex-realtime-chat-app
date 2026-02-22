@@ -1,20 +1,17 @@
 "use client";
 
-import { useAuth, UserButton } from "@clerk/nextjs";
-import { 
-  useGetCurrentUser, 
-  useGetConversations
-} from "@/lib/convexHooks";
-import { useState, useEffect, useCallback } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/loading";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useGetConversations } from "@/lib/convexHooks";
+import { UserButton } from "@clerk/nextjs";
 import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { CreateConversationDialog } from "./CreateConversationDialog";
 
 interface SidebarProps {
@@ -30,21 +27,33 @@ interface ConversationItemProps {
   isActive: boolean;
 }
 
-function ConversationItem({ conversation, currentUserId, isActive }: ConversationItemProps) {
+function ConversationItem({
+  conversation,
+  currentUserId,
+  isActive,
+}: ConversationItemProps) {
   const getConversationName = () => {
     if (conversation.type === "group") return conversation.name;
-    const otherMember = conversation.memberUsers?.find((u: any) => u.userId !== currentUserId);
+    const otherMember = conversation.memberUsers?.find(
+      (u: any) => u.userId !== currentUserId,
+    );
     if (otherMember) return otherMember.name;
-    const selfMember = conversation.memberUsers?.find((u: any) => u.userId === currentUserId);
+    const selfMember = conversation.memberUsers?.find(
+      (u: any) => u.userId === currentUserId,
+    );
     if (selfMember) return `${selfMember.name} (You)`;
     return "Chat";
   };
 
   const getConversationAvatar = () => {
     if (conversation.type === "group") return null;
-    const otherMember = conversation.memberUsers?.find((u: any) => u.userId !== currentUserId);
+    const otherMember = conversation.memberUsers?.find(
+      (u: any) => u.userId !== currentUserId,
+    );
     if (otherMember) return otherMember.avatar;
-    const selfMember = conversation.memberUsers?.find((u: any) => u.userId === currentUserId);
+    const selfMember = conversation.memberUsers?.find(
+      (u: any) => u.userId === currentUserId,
+    );
     return selfMember?.avatar;
   };
 
@@ -64,14 +73,14 @@ function ConversationItem({ conversation, currentUserId, isActive }: Conversatio
       </Avatar>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
-          <p className="font-medium truncate">
+          <p className="font-medium truncate max-w-60">
             {getConversationName()}
           </p>
           {conversation.type === "group" && (
             <Badge variant="secondary">Group</Badge>
           )}
         </div>
-        <p className="text-sm text-muted-foreground truncate">
+        <p className="text-sm text-muted-foreground truncate max-w-60">
           {conversation.latestMessage?.content || "No messages yet"}
         </p>
       </div>
@@ -82,11 +91,17 @@ function ConversationItem({ conversation, currentUserId, isActive }: Conversatio
 export function Sidebar({ userId, currentUser }: SidebarProps) {
   const [conversationSearch, setConversationSearch] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  
-  const [conversationCursor, setConversationCursor] = useState<number | undefined>(0);
+
+  const [conversationCursor, setConversationCursor] = useState<
+    number | undefined
+  >(0);
   const [hasMoreConversations, setHasMoreConversations] = useState(true);
 
-  const conversationsData = useGetConversations(currentUser?._id, conversationCursor, CONVERSATIONS_LIMIT);
+  const conversationsData = useGetConversations(
+    currentUser?._id,
+    conversationCursor,
+    CONVERSATIONS_LIMIT,
+  );
   const pathname = usePathname();
 
   const conversations = conversationsData?.conversations || [];
@@ -98,19 +113,24 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
   }, [conversationSearch]);
 
   const loadMoreConversations = useCallback(() => {
-    if (nextConversationCursor !== null && nextConversationCursor !== undefined) {
+    if (
+      nextConversationCursor !== null &&
+      nextConversationCursor !== undefined
+    ) {
       setConversationCursor(nextConversationCursor);
     } else {
       setHasMoreConversations(false);
     }
   }, [nextConversationCursor]);
 
-  const filteredConversations = conversations?.filter((conv: any) => {
-    const name = conv.type === "group" 
-      ? conv.name 
-      : conv.memberUsers?.find((u: any) => u.userId !== userId)?.name || "";
-    return name.toLowerCase().includes(conversationSearch.toLowerCase());
-  }) || [];
+  const filteredConversations =
+    conversations?.filter((conv: any) => {
+      const name =
+        conv.type === "group"
+          ? conv.name
+          : conv.memberUsers?.find((u: any) => u.userId !== userId)?.name || "";
+      return name.toLowerCase().includes(conversationSearch.toLowerCase());
+    }) || [];
 
   const isActive = (convId: string) => pathname === `/conversation/${convId}`;
 
@@ -120,7 +140,11 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
     const position = target.scrollTop + target.clientHeight;
     const height = target.scrollHeight;
 
-    if (position >= height - threshold && hasMoreConversations && !conversationSearch) {
+    if (
+      position >= height - threshold &&
+      hasMoreConversations &&
+      !conversationSearch
+    ) {
       loadMoreConversations();
     }
   };
@@ -131,21 +155,28 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
     <div className="w-80 border-r flex flex-col h-full relative">
       <div className="p-4 border-b flex items-center justify-between">
         <h1 className="font-semibold">Chats</h1>
-        <UserButton afterSignOutUrl="/" />
+        <UserButton
+          afterSignOutUrl="/"
+          appearance={{
+            elements: {
+              avatarBox: {
+                width: "32px",
+                height: "32px",
+              },
+            },
+          }}
+        />
       </div>
 
       <div className="p-4">
-        <Input 
-          placeholder="Search conversations..." 
+        <Input
+          placeholder="Search conversations..."
           value={conversationSearch}
           onChange={(e) => setConversationSearch(e.target.value)}
         />
       </div>
 
-      <ScrollArea 
-        className="flex-1"
-        onScroll={handleScroll}
-      >
+      <ScrollArea className="flex-1" onScroll={handleScroll}>
         {isLoadingConversations ? (
           <div className="flex items-center justify-center p-4">
             <LoadingSpinner />
@@ -166,7 +197,11 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
             ))}
             {hasMoreConversations && !conversationSearch && (
               <div className="p-2 flex justify-center">
-                <Button variant="ghost" size="sm" onClick={loadMoreConversations}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadMoreConversations}
+                >
                   Load more
                 </Button>
               </div>
@@ -182,8 +217,8 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
         <MessageCircle className="w-5 h-5" />
       </Button>
 
-      <CreateConversationDialog 
-        open={showCreateDialog} 
+      <CreateConversationDialog
+        open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         currentUser={currentUser}
       />

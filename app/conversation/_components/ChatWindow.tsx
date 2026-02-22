@@ -1,6 +1,8 @@
 "use client";
 
-import { useGetMessages, useSendMessage, useGetConversationMembers, useSetTyping, useGetTypingUsers, useAddReaction, useGetReactions, useDeleteMessage, useGetConversation } from "@/lib/convexHooks";
+import { useGetMessages, useSendMessage, useGetConversationMembers, useSetTyping, useGetTypingUsers, useAddReaction, useGetReactions, useDeleteMessage, useGetConversation, useClearTyping } from "@/lib/convexHooks";
+import { useQuery, useMutation, useConvex } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,13 +27,22 @@ const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
 export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const [message, setMessage] = useState("");
+  const [allMessages, setAllMessages] = useState<any[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingSetRef = useRef(false);
+  const prevScrollHeightRef = useRef(0);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
   
-  const messages = useGetMessages(conversationId);
+  const messageData = useGetMessages(conversationId, cursor ?? undefined, 15);
   const sendMessage = useSendMessage();
   const setTyping = useSetTyping();
+  const clearTyping = useClearTyping();
+  
   const typingUsers = useGetTypingUsers(conversationId, currentUserId);
   const addReaction = useAddReaction();
   const deleteMessage = useDeleteMessage();
@@ -39,40 +50,106 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const conversation = useGetConversation(conversationId);
   const { userId: clerkUserId } = useAuth();
 
-  const isLoading = !messages;
+  const isLoading = !messageData;
 
   useEffect(() => {
-    if (scrollRef.current && messages) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    if (!messageData) return;
 
-  const handleTyping = useCallback(() => {
-    if (!currentUserId) return;
-    
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    if (isInitialLoad) {
+      setAllMessages(messageData.messages);
+      setIsInitialLoad(false);
+    } else if (cursor && messageData.messages.length > 0) {
+      if (scrollRef.current) {
+        prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+      }
+      setAllMessages(prev => {
+        const existingIds = new Set(prev.map(m => m._id));
+        const newMessages = messageData.messages.filter(m => !existingIds.has(m._id));
+        return [...newMessages, ...prev];
+      });
+    } else if (!cursor && messageData.messages.length > 0) {
+      setAllMessages(prev => {
+        const existingIds = new Set(prev.map(m => m._id));
+        const newMessages = messageData.messages.filter(m => !existingIds.has(m._id));
+        return [...prev, ...newMessages];
+      });
     }
+
+    setCursor(messageData.continueCursor);
+    setHasMore(!!messageData.continueCursor);
+    setIsLoadingMore(false);
+  }, [messageData, cursor, isInitialLoad]);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+
+    if (allMessages.length > 0) {
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      });
+    }
+  }, [allMessages]);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current || !hasMore || isLoadingMore || isInitialLoad) return;
     
-    setTyping({
-      conversationId: conversationId as any,
-      userId: currentUserId as any,
-    });
-    
+    const { scrollTop } = scrollRef.current;
+    if (scrollTop < 100 && cursor) {
+      setIsLoadingMore(true);
+      setCursor(cursor);
+    }
+  }, [hasMore, isLoadingMore, cursor, isInitialLoad]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    if (!message.trim()) {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (isTypingSetRef.current) {
+        isTypingSetRef.current = false;
+        clearTyping({ conversationId: conversationId as any, userId: currentUserId as any });
+      }
+      return;
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
     typingTimeoutRef.current = setTimeout(() => {
-    }, 3000);
-  }, [conversationId, currentUserId, setTyping]);
+      setTyping({ conversationId: conversationId as any, userId: currentUserId as any });
+      isTypingSetRef.current = true;
+
+      typingTimeoutRef.current = setTimeout(() => {
+        if (isTypingSetRef.current) {
+          isTypingSetRef.current = false;
+          clearTyping({ conversationId: conversationId as any, userId: currentUserId as any });
+        }
+      }, 2000);
+    }, 2000);
+
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [message, conversationId, currentUserId, setTyping, clearTyping]);
 
   const handleSend = () => {
     if (!message.trim() || !currentUserId) return;
+    
     sendMessage({
       conversationId: conversationId as any,
       senderId: currentUserId as any,
       content: message,
     });
     setMessage("");
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    setCursor(null);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (isTypingSetRef.current) {
+      isTypingSetRef.current = false;
+      clearTyping({
+        conversationId: conversationId as any,
+        userId: currentUserId as any,
+      });
     }
   };
 
@@ -133,7 +210,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const typingText = getTypingText();
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <div className="p-4 border-b flex items-center gap-3">
         <Avatar>
           <AvatarImage src={avatarSrc || undefined} />
@@ -142,40 +219,48 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
         <h2 className="font-semibold">{chatName}</h2>
       </div>
       
-      <ScrollArea className="flex-1 p-4 bg-muted" ref={scrollRef}>
-        {isLoading ? (
+      <div 
+        className="flex-1 p-4 bg-muted overflow-auto" 
+        ref={scrollRef}
+        onScroll={handleScroll}
+      >
+        {isLoading && allMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <LoadingSpinner />
           </div>
-        ) : messages?.length === 0 ? (
+        ) : allMessages.length === 0 ? (
           <p className="text-muted-foreground text-center">No messages yet</p>
         ) : (
-          messages?.map((msg: any) => (
-            <MessageBubble
-              key={msg._id}
-              message={msg}
-              currentUserId={currentUserId}
-              isHovered={hoveredMessage === msg._id}
-              onMouseEnter={() => setHoveredMessage(msg._id)}
-              onMouseLeave={() => setHoveredMessage(null)}
-              onReaction={handleReaction}
-              onDelete={handleDelete}
-            />
-          ))
+          <>
+            {isLoadingMore && (
+              <div className="flex justify-center py-2">
+                <LoadingSpinner />
+              </div>
+            )}
+            {allMessages.map((msg: any) => (
+              <MessageBubble
+                key={msg._id}
+                message={msg}
+                currentUserId={currentUserId}
+                isHovered={hoveredMessage === msg._id}
+                onMouseEnter={() => setHoveredMessage(msg._id)}
+                onMouseLeave={() => setHoveredMessage(null)}
+                onReaction={handleReaction}
+                onDelete={handleDelete}
+              />
+            ))}
+          </>
         )}
         {typingText && (
           <p className="text-sm text-muted-foreground italic ml-2">{typingText}</p>
         )}
-      </ScrollArea>
+      </div>
 
       <div className="p-4 border-t flex gap-2">
         <Input
           placeholder="Type a message..."
           value={message}
-          onChange={(e) => {
-            setMessage(e.target.value);
-            handleTyping();
-          }}
+          onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
         />
         <Button onClick={handleSend}>Send</Button>
@@ -195,7 +280,7 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message, currentUserId, isHovered, onMouseEnter, onMouseLeave, onReaction, onDelete }: MessageBubbleProps) {
-  const reactions = useGetReactions(message._id);
+  const reactions = message._id.toString().startsWith("temp-") ? undefined : useGetReactions(message._id);
   const isOwn = message.senderId === currentUserId;
   const isDeleted = message.deleted;
 
@@ -233,7 +318,7 @@ function MessageBubble({ message, currentUserId, isHovered, onMouseEnter, onMous
             </div>
           )}
           <div className={`px-4 py-2 rounded-lg ${
-            isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
+            isOwn ? 'bg-primary text-primary-foreground' : 'bg-background'
           }`}>
             <p>{message.content}</p>
           </div>

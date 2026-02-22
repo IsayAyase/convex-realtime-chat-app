@@ -3,19 +3,36 @@ import { v } from "convex/values";
 import { getCurrentClerkUserId, getCurrentUser, isUserInConversation } from "./utils";
 
 export const getMessages = query({
-  args: { conversationId: v.id("conversations") },
+  args: { 
+    conversationId: v.id("conversations"),
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const clerkUserId = await getCurrentClerkUserId(ctx);
-    if (!clerkUserId) return [];
+    if (!clerkUserId) return { messages: [], continueCursor: null };
 
     const hasAccess = await isUserInConversation(ctx, args.conversationId, clerkUserId);
-    if (!hasAccess) return [];
+    if (!hasAccess) return { messages: [], continueCursor: null };
 
-    return await ctx.db
+    const limit = args.limit ?? 15;
+    
+    let query = ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
-      .order("asc")
-      .collect();
+      .order("desc");
+
+    let result;
+    if (args.cursor) {
+      result = await query.paginate({ cursor: args.cursor, numItems: limit });
+    } else {
+      result = await query.paginate({ cursor: null, numItems: limit });
+    }
+
+    return {
+      messages: result.page.reverse(),
+      continueCursor: result.continueCursor,
+    };
   },
 });
 

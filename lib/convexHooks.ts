@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useConvex as useConvexCore } from "convex/react";
+import { useState, useEffect } from "react";
 import { api } from "@/convex/_generated/api";
 
 export { useQuery, useMutation, useConvexCore as useConvex };
@@ -54,8 +55,12 @@ export function useGetConversationMembers(conversationId: string) {
 }
 
 // Message hooks
-export function useGetMessages(conversationId: string) {
-  return useQuery(api.messages.getMessages, { conversationId: conversationId as any });
+export function useGetMessages(conversationId: string, cursor?: string, limit?: number) {
+  return useQuery(api.messages.getMessages, { 
+    conversationId: conversationId as any,
+    cursor,
+    limit 
+  });
 }
 
 export function useSendMessage() {
@@ -84,7 +89,20 @@ export function useSetTyping() {
   return useMutation(api.reactions.setTyping);
 }
 
+export function useClearTyping() {
+  return useMutation(api.reactions.clearTyping);
+}
+
 export function useGetTypingUsers(conversationId: string, excludeUserId?: string) {
+  const [pollKey, setPollKey] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPollKey(p => p + 1);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   return useQuery(api.reactions.getTypingUsers, { 
     conversationId: conversationId as any, 
     excludeUserId: (excludeUserId || undefined) as any 
