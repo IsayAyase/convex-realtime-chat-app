@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import {
   useAddReaction,
   useClearTyping,
+  useDeleteConversation,
+  useDeleteGroup,
   useDeleteMessage,
   useGetConversation,
   useGetConversationMembers,
@@ -27,8 +29,10 @@ import {
 } from "@/lib/convexHooks";
 import { ArrowLeft, MoreHorizontal, Smile, Trash2, Users, UserPlus, UserMinus, Send } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GroupMembersDialog } from "./GroupMembersDialog";
+import { toast } from "sonner";
 
 interface ChatWindowProps {
   conversationId: string;
@@ -41,12 +45,16 @@ interface ChatOptionsProps {
   conversation: any;
   currentUserId?: string;
   onModeChange: (mode: "view" | "add" | "remove" | null) => void;
+  onDeleteGroup: () => void;
+  onDeleteConversation: () => void;
 }
 
 function ChatOptions({
   conversation,
   currentUserId,
   onModeChange,
+  onDeleteGroup,
+  onDeleteConversation,
 }: ChatOptionsProps) {
   const isGroup = conversation?.type === "group";
   const isAdmin = conversation?.adminUserId === currentUserId;
@@ -75,7 +83,10 @@ function ChatOptions({
                   <UserMinus className="h-4 w-4" />
                   Remove People
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={onDeleteGroup}
+                >
                   <Trash2 className="h-4 w-4" />
                   Delete Group
                 </DropdownMenuItem>
@@ -84,7 +95,10 @@ function ChatOptions({
           </>
         )}
         {!isGroup && (
-          <DropdownMenuItem className="text-destructive">
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={onDeleteConversation}
+          >
             <Trash2 className="h-4 w-4" />
             Delete Conversation
           </DropdownMenuItem>
@@ -203,6 +217,29 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const sendMessage = useSendMessage();
   const setOnline = useSetOnline();
   const setOffline = useSetOffline();
+  const deleteGroup = useDeleteGroup();
+  const deleteConversation = useDeleteConversation();
+  const router = useRouter();
+
+  const handleDeleteConversation = async () => {
+    try {
+      await deleteConversation({ conversationId: conversationId as any });
+      toast.success("Conversation deleted");
+      router.push("/conversation");
+    } catch (error) {
+      toast.error("Failed to delete conversation");
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    try {
+      await deleteGroup({ conversationId: conversationId as any });
+      toast.success("Group deleted");
+      router.push("/conversation");
+    } catch (error) {
+      toast.error("Failed to delete group");
+    }
+  };
 
   const otherUserData = members?.find((u: any) => u._id !== currentUserId);
   const otherUserId = otherUserData?._id;
@@ -432,11 +469,13 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                 </span>
               )}
             </div>
-            <div className="ml-auto">
+<div className="ml-auto">
               <ChatOptions
                 conversation={conversation}
                 currentUserId={currentUserId}
                 onModeChange={setChatOptionsMode}
+                onDeleteGroup={handleDeleteGroup}
+                onDeleteConversation={handleDeleteConversation}
               />
             </div>
           </>

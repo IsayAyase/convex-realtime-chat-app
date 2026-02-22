@@ -240,6 +240,22 @@ export const deleteGroup = mutation({
       throw new Error("Only admin can delete the group");
     }
 
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+
+    for (const msg of messages) {
+      const reactions = await ctx.db
+        .query("reactions")
+        .withIndex("by_message", (q) => q.eq("messageId", msg._id))
+        .collect();
+      for (const reaction of reactions) {
+        await ctx.db.delete(reaction._id);
+      }
+      await ctx.db.delete(msg._id);
+    }
+
     const members = await ctx.db
       .query("conversationMembers")
       .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
@@ -269,20 +285,34 @@ export const deleteConversation = mutation({
     const currentUser = await getCurrentUser(ctx);
     if (!currentUser) throw new Error("Unauthorized");
 
-    const members = await ctx.db
-      .query("conversationMembers")
+    const messages = await ctx.db
+      .query("messages")
       .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
-    const isMember = members.some((m) => m.userId === currentUser._id);
-    if (!isMember) {
-      throw new Error("Not a member of this conversation");
+    for (const msg of messages) {
+      const reactions = await ctx.db
+        .query("reactions")
+        .withIndex("by_message", (q) => q.eq("messageId", msg._id))
+        .collect();
+      for (const reaction of reactions) {
+        await ctx.db.delete(reaction._id);
+      }
+      await ctx.db.delete(msg._id);
     }
 
-    const ownMembership = members.find((m) => m.userId === currentUser._id);
-    if (ownMembership) {
-      await ctx.db.delete(ownMembership._id);
+    const membership = await ctx.db
+      .query("conversationMembers")
+      .withIndex("by_conversation_user", (q) => 
+        q.eq("conversationId", args.conversationId).eq("userId", currentUser._id)
+      )
+      .first();
+
+    if (membership) {
+      await ctx.db.delete(membership._id);
     }
+
+    await ctx.db.delete(args.conversationId);
   },
 });
 
