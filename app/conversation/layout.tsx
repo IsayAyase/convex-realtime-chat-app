@@ -21,14 +21,14 @@ export default function ConversationLayout({
 
   if (!userId) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-dvh items-center justify-center">
         <p>Please sign in to continue</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-dvh">
       <Sidebar 
         userId={userId}
         currentUser={currentUser}

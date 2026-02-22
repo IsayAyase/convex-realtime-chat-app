@@ -150,9 +150,10 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
   };
 
   const isLoadingConversations = conversationsData === undefined;
+  const isConversationPage = pathname !== "/conversation";
 
   return (
-    <div className="w-80 border-r flex flex-col h-full relative">
+    <div className={`${isConversationPage ? "hidden md:block" : "w-full"} md:w-80 border-r flex flex-col h-full relative`}>
       <div className="p-4 border-b flex items-center justify-between">
         <h1 className="font-semibold">Chats</h1>
         <UserButton

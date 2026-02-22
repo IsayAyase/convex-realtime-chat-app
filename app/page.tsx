@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-dvh flex flex-col">
       {/* Navbar */}
       <nav className="border-b px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Chat App</h1>

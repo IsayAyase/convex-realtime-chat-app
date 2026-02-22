@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 
 export function LoadingScreen() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-dvh">
       <LoadingSpinner />
     </div>
   );

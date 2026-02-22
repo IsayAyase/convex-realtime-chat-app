@@ -16,7 +16,8 @@ import {
   useSendMessage,
   useSetTyping,
 } from "@/lib/convexHooks";
-import { Smile, Trash2 } from "lucide-react";
+import { ArrowLeft, Smile, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface ChatWindowProps {
@@ -140,7 +141,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     ) {
       requestAnimationFrame(() => {
         if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight + 100;
           initialScrollDoneRef.current = true;
         }
       });
@@ -316,14 +317,23 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const typingText = getTypingText();
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-dvh overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b flex items-center gap-3">
-        <Avatar>
-          <AvatarImage src={avatarSrc || undefined} />
-          <AvatarFallback>{avatarFallback}</AvatarFallback>
-        </Avatar>
-        <h2 className="font-semibold">{chatName}</h2>
+        <Link href="/conversation">
+          <Button variant={"outline"} size={"icon-sm"}>
+            <ArrowLeft />
+          </Button>
+        </Link>
+        {!isLoading && (
+          <>
+            <Avatar>
+              <AvatarImage src={avatarSrc || undefined} />
+              <AvatarFallback>{avatarFallback}</AvatarFallback>
+            </Avatar>
+            <h2 className="font-semibold">{chatName}</h2>
+          </>
+        )}
       </div>
 
       {/* Message list */}
