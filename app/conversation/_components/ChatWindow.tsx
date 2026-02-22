@@ -13,7 +13,10 @@ import {
   useGetMessages,
   useGetReactions,
   useGetTypingUsers,
+  useGetUserPresence,
   useSendMessage,
+  useSetOffline,
+  useSetOnline,
   useSetTyping,
 } from "@/lib/convexHooks";
 import { ArrowLeft, Smile, Trash2 } from "lucide-react";
@@ -131,6 +134,33 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const members = useGetConversationMembers(conversationId);
   const conversation = useGetConversation(conversationId);
   const sendMessage = useSendMessage();
+  const setOnline = useSetOnline();
+  const setOffline = useSetOffline();
+
+  const otherUserData = members?.find((u: any) => u._id !== currentUserId);
+  const otherUserId = otherUserData?._id;
+  const otherUserPresence = useGetUserPresence(otherUserId);
+
+  useEffect(() => {
+    setOnline();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setOnline();
+      } else {
+        setOffline();
+      }
+    };
+
+    const interval = setInterval(() => setOnline(), 30000);
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      setOffline();
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [setOnline, setOffline]);
 
   // --- SCROLL TO BOTTOM ON INITIAL LOAD ------------------------------------
   useEffect(() => {
@@ -274,8 +304,6 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   };
 
   // --- HEADER METADATA ------------------------------------------------------
-  const otherUserData = members?.find((u: any) => u._id !== currentUserId);
-
   const getChatAvatar = () => {
     if (conversation?.type === "group") return null;
     if (otherUserData) return otherUserData?.avatar;
@@ -327,11 +355,27 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
         </Link>
         {!isLoading && (
           <>
-            <Avatar>
-              <AvatarImage src={avatarSrc || undefined} />
-              <AvatarFallback>{avatarFallback}</AvatarFallback>
-            </Avatar>
-            <h2 className="font-semibold">{chatName}</h2>
+            <div className="relative">
+              <Avatar>
+                <AvatarImage src={avatarSrc || undefined} />
+                <AvatarFallback>{avatarFallback}</AvatarFallback>
+              </Avatar>
+              {conversation?.type === "direct" && otherUserPresence && (
+                <span
+                  className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-background ${
+                    otherUserPresence.online && (Date.now() - (otherUserPresence.lastSeen || 0) < 10000) ? "bg-emerald-500" : "bg-muted-foreground"
+                  }`}
+                />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <h2 className="font-semibold">{chatName}</h2>
+              {conversation?.type === "direct" && otherUserPresence && (
+                <span className="text-xs text-muted-foreground">
+                  {otherUserPresence.online && (Date.now() - (otherUserPresence.lastSeen || 0) < 10000) ? "Online" : otherUserPresence.lastSeen ? `Last seen ${new Date(otherUserPresence.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Offline"}
+                </span>
+              )}
+            </div>
           </>
         )}
       </div>

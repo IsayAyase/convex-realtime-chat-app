@@ -51,4 +51,11 @@ export default defineSchema({
     userId: v.id("users"),
     expiresAt: v.number(),
   }).index("by_conversation_user", ["conversationId", "userId"]),
+
+  presence: defineTable({
+    userId: v.id("users"),
+    online: v.boolean(),
+    lastSeen: v.number(),
+  }).index("by_user", ["userId"])
+   .index("by_online", ["online"]),
 });

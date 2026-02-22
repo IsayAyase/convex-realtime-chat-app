@@ -112,3 +112,16 @@ export function useGetTypingUsers(conversationId: string, excludeUserId?: string
 export function useGetConversation(conversationId: string) {
   return useQuery(api.conversations.getConversation, { conversationId: conversationId as any });
 }
+
+// Presence hooks
+export function useSetOnline() {
+  return useMutation(api.presence.setOnline);
+}
+
+export function useSetOffline() {
+  return useMutation(api.presence.setOffline);
+}
+
+export function useGetUserPresence(userId: string | undefined) {
+  return useQuery(api.presence.getUserPresence, { userId: (userId || undefined) as any });
+}
