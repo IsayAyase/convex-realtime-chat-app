@@ -38,15 +38,19 @@ function getDateLabel(timestamp: number): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
+
   const msgDay = msgDate.toDateString();
   const todayDay = today.toDateString();
   const yesterdayDay = yesterday.toDateString();
-  
+
   if (msgDay === todayDay) return "Today";
   if (msgDay === yesterdayDay) return "Yesterday";
-  
-  return msgDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return msgDate.toLocaleDateString([], {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function DateSeparator({ date }: { date: number }) {
@@ -69,7 +73,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const isTypingSetRef = useRef(false);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
 
-  const messageData = useGetMessages(conversationId, cursor ?? undefined, 15);
+  const messageData = useGetMessages(conversationId, cursor ?? undefined, 20);
 
   useEffect(() => {
     if (!messageData) return;
@@ -107,7 +111,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
 
     const { scrollTop } = scrollRef.current;
 
-    if (scrollTop < 200 && messageData?.continueCursor) {
+    if (scrollTop < 300 && messageData?.continueCursor) {
       setCursor(messageData.continueCursor);
     }
   }, [hasMore, messageData]);
@@ -265,32 +269,40 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
           <p className="text-muted-foreground text-center">No messages yet</p>
         ) : (
           <>
-            {messages.reduce((acc: React.ReactNode[], msg: any, index: number) => {
-              const msgDate = new Date(msg.createdAt).toDateString();
-              const prevMsg = index > 0 ? messages[index - 1] : null;
-              const prevDate = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
-              
-              if (!prevDate || msgDate !== prevDate) {
+            {messages.reduce(
+              (acc: React.ReactNode[], msg: any, index: number) => {
+                const msgDate = new Date(msg.createdAt).toDateString();
+                const prevMsg = index > 0 ? messages[index - 1] : null;
+                const prevDate = prevMsg
+                  ? new Date(prevMsg.createdAt).toDateString()
+                  : null;
+
+                if (!prevDate || msgDate !== prevDate) {
+                  acc.push(
+                    <DateSeparator
+                      key={`date-${msg._id}`}
+                      date={msg.createdAt}
+                    />,
+                  );
+                }
+
                 acc.push(
-                  <DateSeparator key={`date-${msg._id}`} date={msg.createdAt} />
+                  <MessageBubble
+                    key={msg._id}
+                    message={msg}
+                    currentUserId={currentUserId}
+                    isHovered={hoveredMessage === msg._id}
+                    onMouseEnter={() => setHoveredMessage(msg._id)}
+                    onMouseLeave={() => setHoveredMessage(null)}
+                    onReaction={handleReaction}
+                    onDelete={handleDelete}
+                  />,
                 );
-              }
-              
-              acc.push(
-                <MessageBubble
-                  key={msg._id}
-                  message={msg}
-                  currentUserId={currentUserId}
-                  isHovered={hoveredMessage === msg._id}
-                  onMouseEnter={() => setHoveredMessage(msg._id)}
-                  onMouseLeave={() => setHoveredMessage(null)}
-                  onReaction={handleReaction}
-                  onDelete={handleDelete}
-                />
-              );
-              
-              return acc;
-            }, [])}
+
+                return acc;
+              },
+              [],
+            )}
           </>
         )}
         {typingText && <TypingMessageBubble />}
@@ -340,81 +352,80 @@ function MessageBubble({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {isDeleted ? (
-        <p className="text-muted-foreground text-sm italic">
-          This message was deleted
-        </p>
-      ) : (
-        <div
-          className={`inline-block relative max-w-[80%] md:max-w-[70%] lg:max-w-md ${isOwn ? "text-right" : "text-left"}`}
-        >
-          {isHovered && !isDeleted && (
-            <div
-              className={`absolute -top-8 ${isOwn ? "right-0" : "left-0"} flex gap-1 bg-background rounded shadow-md p-1`}
-            >
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                    <Smile className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {EMOJI_REACTIONS.map((emoji) => (
-                    <DropdownMenuItem
-                      key={emoji}
-                      onClick={() => onReaction(message._id, emoji)}
-                    >
-                      {emoji}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {isOwn && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => onDelete(message._id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          )}
+      <div
+        className={`inline-block relative max-w-[80%] md:max-w-[70%] lg:max-w-md ${isOwn ? "text-right" : "text-left"}`}
+      >
+        {isHovered && !isDeleted && (
           <div
-            className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}
+            className={`absolute -top-8 ${isOwn ? "right-0" : "left-0"} flex gap-1 bg-background rounded shadow-md p-1`}
           >
-            <div
-              className={`px-3 py-1 rounded-sm w-full ${
-                isOwn ? "bg-primary text-primary-foreground" : "bg-background"
-              }`}
-            >
-              <p className="text-sm">{message.content}</p>
-              <p
-                className={`text-[10px] text-end ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}
-              >
-                {new Date(message.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            </div>
-            {reactions && reactions.length > 0 && (
-              <div className="flex gap-1 mt-1 flex-wrap">
-                {reactions.map((r: any, idx: number) => (
-                  <span
-                    key={idx}
-                    className="text-xs bg-background border rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-accent"
-                    onClick={() => onReaction(message._id, r.emoji)}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                  <Smile className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {EMOJI_REACTIONS.map((emoji) => (
+                  <DropdownMenuItem
+                    key={emoji}
+                    onClick={() => onReaction(message._id, emoji)}
                   >
-                    {r.emoji} {r.count}
-                  </span>
+                    {emoji}
+                  </DropdownMenuItem>
                 ))}
-              </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {isOwn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => onDelete(message._id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             )}
           </div>
+        )}
+        <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
+          <div
+            className={`px-3 py-1 rounded-sm w-full ${
+              isOwn ? "bg-primary text-primary-foreground" : "bg-background"
+            }`}
+          >
+            {isDeleted ? (
+              <p className={`text-sm italic ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}>This message was deleted</p>
+            ) : (
+              <>
+                <p className="text-sm">{message.content}</p>
+                <p
+                  className={`text-[10px] text-end ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                >
+                  {new Date(message.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </>
+            )}
+          </div>
+
+          {reactions && reactions.length > 0 && (
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {reactions.map((r: any, idx: number) => (
+                <span
+                  key={idx}
+                  className="text-xs bg-background border rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-accent"
+                  onClick={() => onReaction(message._id, r.emoji)}
+                >
+                  {r.emoji} {r.count}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
