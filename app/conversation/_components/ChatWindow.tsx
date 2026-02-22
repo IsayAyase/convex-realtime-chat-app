@@ -162,50 +162,21 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     };
   }, [setOnline, setOffline]);
 
-  // --- SCROLL TO BOTTOM ON INITIAL LOAD ------------------------------------
+  // --- SCROLL TO BOTTOM ON INITIAL LOAD & NEW MESSAGES --------------------
+  const prevAllMessagesLength = useRef(0);
   useEffect(() => {
-    if (
-      !initialScrollDoneRef.current &&
-      allMessages.length > 0 &&
-      scrollRef.current
-    ) {
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight + 100;
-          initialScrollDoneRef.current = true;
-        }
-      });
-    }
-  }, [allMessages]);
-
-  // --- SCROLL TO BOTTOM WHEN A NEW MESSAGE ARRIVES (live) ------------------
-  // We detect "new" messages by watching liveData. If the user is near the
-  // bottom we scroll down; if they've scrolled up we leave them alone.
-  const prevLiveLengthRef = useRef(0);
-  useEffect(() => {
-    if (!liveData) return;
-    const newLength = liveData.messages.length;
-    const prevLength = prevLiveLengthRef.current;
-
-    if (
-      newLength > prevLength &&
-      scrollRef.current &&
-      initialScrollDoneRef.current
-    ) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      // Auto-scroll only if user is within 200px of the bottom
-      if (distanceFromBottom < 200) {
-        requestAnimationFrame(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          }
-        });
+    if (allMessages.length > 0 && scrollRef.current) {
+      // Only auto-scroll if user was already near bottom or it's initial load
+      const shouldScroll = 
+        prevAllMessagesLength.current === 0 || // initial load
+        allMessages.length > prevAllMessagesLength.current; // new message added
+      
+      if (shouldScroll) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
     }
-
-    prevLiveLengthRef.current = newLength;
-  }, [liveData]);
+    prevAllMessagesLength.current = allMessages.length;
+  }, [allMessages]);
 
   // --- INFINITE SCROLL HANDLER ----------------------------------------------
   const handleScroll = useCallback(() => {
@@ -360,29 +331,33 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                 <AvatarImage src={avatarSrc || undefined} />
                 <AvatarFallback>{avatarFallback}</AvatarFallback>
               </Avatar>
-              {conversation?.type === "direct" && otherUserPresence && (
-                <span
-                  className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-background ${
-                    otherUserPresence.online &&
-                    Date.now() - (otherUserPresence.lastSeen || 0) < 10000
-                      ? "bg-emerald-500"
-                      : "bg-muted-foreground"
-                  }`}
-                />
-              )}
+              {conversation?.type === "direct" &&
+                otherUserId &&
+                otherUserPresence && (
+                  <span
+                    className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-background ${
+                      otherUserPresence.online &&
+                      Date.now() - (otherUserPresence.lastSeen || 0) < 10000
+                        ? "bg-emerald-500"
+                        : "bg-muted-foreground"
+                    }`}
+                  />
+                )}
             </div>
             <div className="flex flex-col">
               <h2 className="font-semibold">{chatName}</h2>
-              {conversation?.type === "direct" && otherUserPresence && (
-                <span className="text-xs text-muted-foreground">
-                  {otherUserPresence.online &&
-                  Date.now() - (otherUserPresence.lastSeen || 0) < 10000
-                    ? "Online"
-                    : otherUserPresence.lastSeen
-                      ? `Last seen ${new Date(otherUserPresence.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                      : "Offline"}
-                </span>
-              )}
+              {conversation?.type === "direct" &&
+                otherUserId &&
+                otherUserPresence && (
+                  <span className="text-xs text-muted-foreground">
+                    {otherUserPresence.online &&
+                    Date.now() - (otherUserPresence.lastSeen || 0) < 10000
+                      ? "Online"
+                      : otherUserPresence.lastSeen
+                        ? `Last seen ${new Date(otherUserPresence.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                        : "Offline"}
+                  </span>
+                )}
             </div>
           </>
         )}
@@ -395,7 +370,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
         onScroll={handleScroll}
       >
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center py-10">
             <LoadingSpinner />
           </div>
         ) : allMessages.length === 0 ? (
@@ -605,7 +580,9 @@ function MessageBubble({
               }`}
             >
               {isGroup && !isOwn && (
-                <span className={`text-xs font-medium text-foreground text-start`}>
+                <span
+                  className={`text-xs font-medium text-foreground text-start`}
+                >
                   {senderName}
                 </span>
               )}

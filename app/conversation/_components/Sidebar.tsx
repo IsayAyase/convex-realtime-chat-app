@@ -12,6 +12,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { CreateConversationDialog } from "./CreateConversationDialog";
+import { ModeToggle } from "@/components/mode-toggle";
 
 interface SidebarProps {
   userId: string;
@@ -37,13 +38,16 @@ function formatMessageTime(timestamp: number): string {
   const yesterdayDay = yesterday.toDateString();
 
   if (msgDay === todayDay) {
-    return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return msgDate.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
   if (msgDay === yesterdayDay) {
     return "Yesterday";
   }
 
-  return msgDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return msgDate.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 function ConversationItem({
@@ -181,20 +185,25 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
   const isConversationPage = pathname !== "/conversation";
 
   return (
-    <div className={`${isConversationPage ? "hidden md:block" : "w-full"} md:w-80 border-r flex flex-col h-full relative`}>
-      <div className="p-4 border-b flex items-center justify-between">
-        <h1 className="font-semibold">Chats</h1>
-        <UserButton
-          afterSignOutUrl="/"
-          appearance={{
-            elements: {
-              avatarBox: {
-                width: "32px",
-                height: "32px",
+    <div
+      className={`${isConversationPage ? "hidden md:block" : "w-full"} md:w-80 border-r flex flex-col h-full relative`}
+    >
+      <div className="p-4 border-b flex gap-4 items-center justify-between">
+        <h1 className="font-semibold text-4xl">Chats</h1>
+        <div className="flex gap-4 items-center justify-end">
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: {
+                  width: "32px",
+                  height: "32px",
+                },
               },
-            },
-          }}
-        />
+            }}
+          />
+          <ModeToggle />
+        </div>
       </div>
 
       <div className="p-4">

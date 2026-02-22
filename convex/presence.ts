@@ -64,14 +64,16 @@ export const getOnlineUsers = query({
 });
 
 export const getUserPresence = query({
-  args: { userId: v.id("users") },
+  args: { userId: v.optional(v.id("users")) },
   handler: async (ctx, args) => {
     const clerkUserId = await getCurrentClerkUserId(ctx);
     if (!clerkUserId) return null;
+    
+    if (!args.userId) return null;
 
     const presence = await ctx.db
       .query("presence")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId!))
       .first();
 
     if (!presence) return { online: false, lastSeen: null };

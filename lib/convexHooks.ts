@@ -123,6 +123,5 @@ export function useSetOffline() {
 }
 
 export function useGetUserPresence(userId: string | undefined) {
-  if (!userId) return null;
   return useQuery(api.presence.getUserPresence, { userId: userId as any });
 }
