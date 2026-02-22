@@ -1,22 +1,30 @@
 "use client";
 
-import { useGetMessages, useSendMessage, useGetConversationMembers, useSetTyping, useGetTypingUsers, useAddReaction, useGetReactions, useDeleteMessage, useGetConversation, useClearTyping } from "@/lib/convexHooks";
-import { useQuery, useMutation, useConvex } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingSpinner } from "@/components/loading";
-import { MoreVertical, Smile, Trash2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  useAddReaction,
+  useClearTyping,
+  useDeleteMessage,
+  useGetConversation,
+  useGetConversationMembers,
+  useGetMessages,
+  useGetReactions,
+  useGetTypingUsers,
+  useSendMessage,
+  useSetTyping,
+} from "@/lib/convexHooks";
 import { useAuth } from "@clerk/nextjs";
+import { Smile, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ChatWindowProps {
   conversationId: string;
@@ -25,40 +33,67 @@ interface ChatWindowProps {
 
 const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
+function getDateLabel(timestamp: number): string {
+  const msgDate = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const msgDay = msgDate.toDateString();
+  const todayDay = today.toDateString();
+  const yesterdayDay = yesterday.toDateString();
+  
+  if (msgDay === todayDay) return "Today";
+  if (msgDay === yesterdayDay) return "Yesterday";
+  
+  return msgDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function DateSeparator({ date }: { date: number }) {
+  return (
+    <div className="flex justify-center my-4">
+      <span className="bg-background text-xs px-3 py-1 rounded-full text-muted-foreground shadow-sm">
+        {getDateLabel(date)}
+      </span>
+    </div>
+  );
+}
+
 export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const [message, setMessage] = useState("");
   const [loadedMessages, setLoadedMessages] = useState<any[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingShownRef = useRef(false);
   const isTypingSetRef = useRef(false);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
-  
+
   const messageData = useGetMessages(conversationId, cursor ?? undefined, 15);
-  
+
   useEffect(() => {
     if (!messageData) return;
-    
+
     const newMessages = messageData.messages;
-    
-    setLoadedMessages(prev => {
-      const existingIds = new Set(prev.map(m => m._id));
-      const uniqueNew = newMessages.filter(m => !existingIds.has(m._id));
+
+    setLoadedMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => m._id));
+      const uniqueNew = newMessages.filter((m) => !existingIds.has(m._id));
       if (uniqueNew.length === 0) return prev;
-      
+
       if (!cursor) {
         return [...prev, ...uniqueNew];
       }
       return [...uniqueNew, ...prev];
     });
   }, [messageData, cursor]);
-  
+
   const messages = loadedMessages;
   const hasMore = !!messageData?.continueCursor;
   const isLoading = !messageData;
   const setTyping = useSetTyping();
   const clearTyping = useClearTyping();
-  
+
   const typingUsers = useGetTypingUsers(conversationId, currentUserId);
   const addReaction = useAddReaction();
   const deleteMessage = useDeleteMessage();
@@ -69,9 +104,9 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
 
   const handleScroll = useCallback(() => {
     if (!scrollRef.current || !hasMore) return;
-    
+
     const { scrollTop } = scrollRef.current;
-    
+
     if (scrollTop < 200 && messageData?.continueCursor) {
       setCursor(messageData.continueCursor);
     }
@@ -94,25 +129,36 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
 
     if (!message.trim()) {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingShownRef.current = false;
       if (isTypingSetRef.current) {
         isTypingSetRef.current = false;
-        clearTyping({ conversationId: conversationId as any, userId: currentUserId as any });
+        clearTyping({
+          conversationId: conversationId as any,
+          userId: currentUserId as any,
+        });
       }
       return;
     }
 
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (!typingShownRef.current) {
+      typingShownRef.current = true;
+      typingTimeoutRef.current = setTimeout(() => {
+        setTyping({
+          conversationId: conversationId as any,
+          userId: currentUserId as any,
+        });
+        isTypingSetRef.current = true;
+      }, 1000);
+    }
 
     typingTimeoutRef.current = setTimeout(() => {
-      setTyping({ conversationId: conversationId as any, userId: currentUserId as any });
-      isTypingSetRef.current = true;
-
-      typingTimeoutRef.current = setTimeout(() => {
-        if (isTypingSetRef.current) {
-          isTypingSetRef.current = false;
-          clearTyping({ conversationId: conversationId as any, userId: currentUserId as any });
-        }
-      }, 2000);
+      if (isTypingSetRef.current) {
+        isTypingSetRef.current = false;
+        clearTyping({
+          conversationId: conversationId as any,
+          userId: currentUserId as any,
+        });
+      }
     }, 2000);
 
     return () => {
@@ -122,7 +168,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
 
   const handleSend = () => {
     if (!message.trim() || !currentUserId) return;
-    
+
     sendMessage({
       conversationId: conversationId as any,
       senderId: currentUserId as any,
@@ -164,10 +210,11 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   };
 
   const avatarSrc = getChatAvatar();
-  const avatarFallback = conversation?.type === "group" 
-    ? conversation.name?.charAt(0) || "G"
-    : (otherUserData?.name?.charAt(0) || members?.[0]?.name?.charAt(0) || "?");
-  
+  const avatarFallback =
+    conversation?.type === "group"
+      ? conversation.name?.charAt(0) || "G"
+      : otherUserData?.name?.charAt(0) || members?.[0]?.name?.charAt(0) || "?";
+
   const getChatName = () => {
     if (conversation?.type === "group") {
       return conversation.name || "Group Chat";
@@ -204,9 +251,9 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
         </Avatar>
         <h2 className="font-semibold">{chatName}</h2>
       </div>
-      
-      <div 
-        className="flex-1 p-4 bg-muted overflow-auto" 
+
+      <div
+        className="flex-1 p-4 bg-muted overflow-auto"
         ref={scrollRef}
         onScroll={handleScroll}
       >
@@ -218,23 +265,35 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
           <p className="text-muted-foreground text-center">No messages yet</p>
         ) : (
           <>
-            {messages.map((msg: any) => (
-              <MessageBubble
-                key={msg._id}
-                message={msg}
-                currentUserId={currentUserId}
-                isHovered={hoveredMessage === msg._id}
-                onMouseEnter={() => setHoveredMessage(msg._id)}
-                onMouseLeave={() => setHoveredMessage(null)}
-                onReaction={handleReaction}
-                onDelete={handleDelete}
-              />
-            ))}
+            {messages.reduce((acc: React.ReactNode[], msg: any, index: number) => {
+              const msgDate = new Date(msg.createdAt).toDateString();
+              const prevMsg = index > 0 ? messages[index - 1] : null;
+              const prevDate = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+              
+              if (!prevDate || msgDate !== prevDate) {
+                acc.push(
+                  <DateSeparator key={`date-${msg._id}`} date={msg.createdAt} />
+                );
+              }
+              
+              acc.push(
+                <MessageBubble
+                  key={msg._id}
+                  message={msg}
+                  currentUserId={currentUserId}
+                  isHovered={hoveredMessage === msg._id}
+                  onMouseEnter={() => setHoveredMessage(msg._id)}
+                  onMouseLeave={() => setHoveredMessage(null)}
+                  onReaction={handleReaction}
+                  onDelete={handleDelete}
+                />
+              );
+              
+              return acc;
+            }, [])}
           </>
         )}
-        {typingText && (
-          <p className="text-sm text-muted-foreground italic ml-2">{typingText}</p>
-        )}
+        {typingText && <TypingMessageBubble />}
       </div>
 
       <div className="p-4 border-t flex gap-2">
@@ -260,23 +319,39 @@ interface MessageBubbleProps {
   onDelete: (messageId: string) => void;
 }
 
-function MessageBubble({ message, currentUserId, isHovered, onMouseEnter, onMouseLeave, onReaction, onDelete }: MessageBubbleProps) {
-  const reactions = message._id.toString().startsWith("temp-") ? undefined : useGetReactions(message._id);
+function MessageBubble({
+  message,
+  currentUserId,
+  isHovered,
+  onMouseEnter,
+  onMouseLeave,
+  onReaction,
+  onDelete,
+}: MessageBubbleProps) {
+  const reactions = message._id.toString().startsWith("temp-")
+    ? undefined
+    : useGetReactions(message._id);
   const isOwn = message.senderId === currentUserId;
   const isDeleted = message.deleted;
 
   return (
     <div
-      className={`mb-2 group ${isOwn ? 'text-right' : 'text-left'}`}
+      className={`mb-2 group ${isOwn ? "text-right" : "text-left"}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       {isDeleted ? (
-        <p className="text-muted-foreground text-sm italic">This message was deleted</p>
+        <p className="text-muted-foreground text-sm italic">
+          This message was deleted
+        </p>
       ) : (
-        <div className={`inline-block relative ${isOwn ? 'text-right' : 'text-left'}`}>
+        <div
+          className={`inline-block relative max-w-[80%] md:max-w-[70%] lg:max-w-md ${isOwn ? "text-right" : "text-left"}`}
+        >
           {isHovered && !isDeleted && (
-            <div className={`absolute -top-8 ${isOwn ? 'right-0' : 'left-0'} flex gap-1 bg-background rounded shadow-md p-1`}>
+            <div
+              className={`absolute -top-8 ${isOwn ? "right-0" : "left-0"} flex gap-1 bg-background rounded shadow-md p-1`}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -285,42 +360,84 @@ function MessageBubble({ message, currentUserId, isHovered, onMouseEnter, onMous
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   {EMOJI_REACTIONS.map((emoji) => (
-                    <DropdownMenuItem key={emoji} onClick={() => onReaction(message._id, emoji)}>
+                    <DropdownMenuItem
+                      key={emoji}
+                      onClick={() => onReaction(message._id, emoji)}
+                    >
                       {emoji}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
               {isOwn && (
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(message._id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => onDelete(message._id)}
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
             </div>
           )}
-          <div className={`px-4 py-2 rounded-lg ${
-            isOwn ? 'bg-primary text-primary-foreground' : 'bg-background'
-          }`}>
-            <p>{message.content}</p>
-          </div>
-          {reactions && reactions.length > 0 && (
-            <div className="flex gap-1 mt-1 flex-wrap">
-              {reactions.map((r: any, idx: number) => (
-                <span
-                  key={idx}
-                  className="text-xs bg-background border rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-accent"
-                  onClick={() => onReaction(message._id, r.emoji)}
-                >
-                  {r.emoji} {r.count}
-                </span>
-              ))}
+          <div
+            className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}
+          >
+            <div
+              className={`px-3 py-1 rounded-sm w-full ${
+                isOwn ? "bg-primary text-primary-foreground" : "bg-background"
+              }`}
+            >
+              <p className="text-sm">{message.content}</p>
+              <p
+                className={`text-[10px] text-end ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+              >
+                {new Date(message.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
             </div>
-          )}
-          <p className="text-xs text-muted-foreground mt-1">
-            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
+            {reactions && reactions.length > 0 && (
+              <div className="flex gap-1 mt-1 flex-wrap">
+                {reactions.map((r: any, idx: number) => (
+                  <span
+                    key={idx}
+                    className="text-xs bg-background border rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-accent"
+                    onClick={() => onReaction(message._id, r.emoji)}
+                  >
+                    {r.emoji} {r.count}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TypingMessageBubble() {
+  return (
+    <div className="mb-2 text-left">
+      <div className="inline-block px-2 py-1 rounded-lg bg-background">
+        <div className="flex gap-1 h-8 items-center">
+          <span
+            className="size-1.5 bg-muted-foreground rounded-full animate-bounce"
+            style={{ animationDelay: "0ms" }}
+          ></span>
+          <span
+            className="size-1.5 bg-muted-foreground rounded-full animate-bounce"
+            style={{ animationDelay: "150ms" }}
+          ></span>
+          <span
+            className="size-1.5 bg-muted-foreground rounded-full animate-bounce"
+            style={{ animationDelay: "300ms" }}
+          ></span>
+        </div>
+      </div>
     </div>
   );
 }
