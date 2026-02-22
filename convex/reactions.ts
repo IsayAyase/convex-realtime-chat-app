@@ -23,16 +23,22 @@ export const addReaction = mutation({
     const hasAccess = await isUserInConversation(ctx, message.conversationId, clerkUserId);
     if (!hasAccess) throw new Error("Unauthorized");
 
-    const existing = await ctx.db
+    const existingReactions = await ctx.db
       .query("reactions")
-      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
-      .filter((q) => q.eq("userId", args.userId as string))
-      .filter((q) => q.eq("emoji", args.emoji))
-      .first();
+      .withIndex("by_user_message", (q) => 
+        q.eq("userId", args.userId).eq("messageId", args.messageId)
+      )
+      .collect();
 
-    if (existing) {
-      await ctx.db.delete(existing._id);
+    const existingSameEmoji = existingReactions.find((r) => r.emoji === args.emoji);
+
+    if (existingSameEmoji) {
+      await ctx.db.delete(existingSameEmoji._id);
       return null;
+    }
+
+    for (const existing of existingReactions) {
+      await ctx.db.delete(existing._id);
     }
 
     return await ctx.db.insert("reactions", {

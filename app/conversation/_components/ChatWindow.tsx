@@ -3,12 +3,6 @@
 import { LoadingSpinner } from "@/components/loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   useAddReaction,
@@ -52,16 +46,6 @@ function getDateLabel(timestamp: number): string {
   });
 }
 
-function DateSeparator({ date }: { date: number }) {
-  return (
-    <div className="flex justify-center my-4">
-      <span className="bg-background text-xs px-3 py-1 rounded-full text-muted-foreground shadow-sm">
-        {getDateLabel(date)}
-      </span>
-    </div>
-  );
-}
-
 export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const [message, setMessage] = useState("");
   // Stores only the older (paginated) messages loaded via cursor
@@ -69,7 +53,9 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   // The cursor used to fetch the next (older) page
   const [cursor, setCursor] = useState<string | null>(null);
   // The cursor to use for the next load (tracks the last continueCursor from olderData)
-  const [olderContinueCursor, setOlderContinueCursor] = useState<string | null>(null);
+  const [olderContinueCursor, setOlderContinueCursor] = useState<string | null>(
+    null,
+  );
   // Tracks whether we've exhausted all older messages (no more to load)
   const [hasMoreOlder, setHasMoreOlder] = useState(true);
   // Prevents duplicate scroll triggers while a page is loading
@@ -80,19 +66,22 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const typingShownRef = useRef(false);
   const isTypingSetRef = useRef(false);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
+  const [openActionMessage, setOpenActionMessage] = useState<string | null>(
+    null,
+  );
   // Track whether this is the very first load so we can auto-scroll to bottom once
   const initialScrollDoneRef = useRef(false);
 
-  // ─── LIVE QUERY (no cursor) ───────────────────────────────────────────────
+  // --- LIVE QUERY (no cursor) -----------------------------------------------
   // This query is always reactive. Convex will push real-time updates here
   // whenever a message is sent or deleted, because it never has a cursor.
   const liveData = useGetMessages(conversationId, undefined, 20);
 
-  // ─── PAGINATED QUERY (older pages) ───────────────────────────────────────
+  // --- PAGINATED QUERY (older pages) ---------------------------------------
   // Only active when the user scrolls up and we have a cursor to fetch.
   const olderData = useGetMessages(conversationId, cursor ?? undefined, 20);
 
-  // ─── MERGE OLDER PAGES ───────────────────────────────────────────────────
+  // --- MERGE OLDER PAGES ---------------------------------------------------
   // When olderData arrives (i.e., user scrolled up and cursor was set),
   // prepend the fetched messages to olderMessages, deduplicating by ID.
   useEffect(() => {
@@ -121,7 +110,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     setLoadingMore(false);
   }, [olderData, cursor]);
 
-  // ─── COMBINE: older pages + live page ────────────────────────────────────
+  // --- COMBINE: older pages + live page ------------------------------------
   // The live query already contains the most recent 20 messages reactively.
   // We deduplicate against it so boundary messages aren't shown twice.
   const allMessages = useMemo(() => {
@@ -142,7 +131,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const conversation = useGetConversation(conversationId);
   const sendMessage = useSendMessage();
 
-  // ─── SCROLL TO BOTTOM ON INITIAL LOAD ────────────────────────────────────
+  // --- SCROLL TO BOTTOM ON INITIAL LOAD ------------------------------------
   useEffect(() => {
     if (
       !initialScrollDoneRef.current &&
@@ -158,7 +147,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     }
   }, [allMessages]);
 
-  // ─── SCROLL TO BOTTOM WHEN A NEW MESSAGE ARRIVES (live) ──────────────────
+  // --- SCROLL TO BOTTOM WHEN A NEW MESSAGE ARRIVES (live) ------------------
   // We detect "new" messages by watching liveData. If the user is near the
   // bottom we scroll down; if they've scrolled up we leave them alone.
   const prevLiveLengthRef = useRef(0);
@@ -187,22 +176,24 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     prevLiveLengthRef.current = newLength;
   }, [liveData]);
 
-  // ─── INFINITE SCROLL HANDLER ──────────────────────────────────────────────
+  // --- INFINITE SCROLL HANDLER ----------------------------------------------
   const handleScroll = useCallback(() => {
     if (!scrollRef.current || loadingMore) return;
 
     const { scrollTop } = scrollRef.current;
 
     // Use olderContinueCursor if we have one and there are more, otherwise use liveData's cursor
-    const nextCursor = hasMoreOlder ? (olderContinueCursor ?? liveData?.continueCursor) : null;
-    
+    const nextCursor = hasMoreOlder
+      ? (olderContinueCursor ?? liveData?.continueCursor)
+      : null;
+
     if (scrollTop < 300 && nextCursor) {
       setLoadingMore(true);
       setCursor(nextCursor);
     }
   }, [hasMoreOlder, loadingMore, liveData, olderContinueCursor]);
 
-  // ─── TYPING INDICATORS ───────────────────────────────────────────────────
+  // --- TYPING INDICATORS --------------------------------------------------
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -246,7 +237,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     };
   }, [message, conversationId, currentUserId, setTyping, clearTyping]);
 
-  // ─── SEND MESSAGE ─────────────────────────────────────────────────────────
+  // --- SEND MESSAGE ---------------------------------------------------------
   const handleSend = () => {
     if (!message.trim() || !currentUserId) return;
 
@@ -281,7 +272,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
     deleteMessage({ messageId: messageId as any });
   };
 
-  // ─── HEADER METADATA ──────────────────────────────────────────────────────
+  // --- HEADER METADATA ------------------------------------------------------
   const otherUserData = members?.find((u: any) => u._id !== currentUserId);
 
   const getChatAvatar = () => {
@@ -324,7 +315,6 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
 
   const typingText = getTypingText();
 
-  // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       {/* Header */}
@@ -350,7 +340,6 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
           <p className="text-muted-foreground text-center">No messages yet</p>
         ) : (
           <>
-            {/* "Loading more…" indicator at the top while fetching older pages */}
             {loadingMore && (
               <div className="flex justify-center my-2">
                 <LoadingSpinner />
@@ -380,8 +369,14 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                     message={msg}
                     currentUserId={currentUserId}
                     isHovered={hoveredMessage === msg._id}
-                    onMouseEnter={() => setHoveredMessage(msg._id)}
+                    isActionOpen={openActionMessage === msg._id}
+                    onMouseEnter={() => {
+                      setHoveredMessage(msg._id);
+                      setOpenActionMessage(null);
+                    }}
                     onMouseLeave={() => setHoveredMessage(null)}
+                    onOpenAction={() => setOpenActionMessage(msg._id)}
+                    onCloseAction={() => setOpenActionMessage(null)}
                     onReaction={handleReaction}
                     onDelete={handleDelete}
                   />,
@@ -411,14 +406,25 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   );
 }
 
-// ─── MESSAGE BUBBLE ─────────────────────────────────────────────────────────
+function DateSeparator({ date }: { date: number }) {
+  return (
+    <div className="flex justify-center my-4">
+      <span className="bg-background text-xs px-3 py-1 rounded-full text-muted-foreground shadow-sm">
+        {getDateLabel(date)}
+      </span>
+    </div>
+  );
+}
 
 interface MessageBubbleProps {
   message: any;
   currentUserId?: string;
   isHovered: boolean;
+  isActionOpen: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onOpenAction: () => void;
+  onCloseAction: () => void;
   onReaction: (messageId: string, emoji: string) => void;
   onDelete: (messageId: string) => void;
 }
@@ -427,12 +433,16 @@ function MessageBubble({
   message,
   currentUserId,
   isHovered,
+  isActionOpen,
   onMouseEnter,
   onMouseLeave,
+  onOpenAction,
+  onCloseAction,
   onReaction,
   onDelete,
 }: MessageBubbleProps) {
-  // Reactions are not fetched for optimistic/temp messages
+  const [isActionBarHovered, setIsActionBarHovered] = useState(false);
+
   const reactions = message._id.toString().startsWith("temp-")
     ? undefined
     : useGetReactions(message._id);
@@ -440,41 +450,52 @@ function MessageBubble({
   const isOwn = message.senderId === currentUserId;
   const isDeleted = message.deleted;
 
+  const currentUserReaction = useMemo(() => {
+    if (!reactions || !currentUserId) return undefined;
+    const found = reactions.find((r: any) => r.userIds.includes(currentUserId));
+    return found?.emoji;
+  }, [reactions, currentUserId]);
+
+  const showActions =
+    (isHovered || isActionOpen || isActionBarHovered) && !isDeleted;
+
   return (
     <div
-      className={`mb-2 group ${isOwn ? "text-right" : "text-left"}`}
+      className={`mb-2 group relative ${isOwn ? "text-right" : "text-left"}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       <div
-        className={`inline-block relative max-w-[80%] md:max-w-[70%] lg:max-w-md ${
+        className={`relative inline-block max-w-[80%] md:max-w-[70%] lg:max-w-md ${
           isOwn ? "text-right" : "text-left"
         }`}
       >
         {/* Hover action bar (reactions + delete) */}
-        {isHovered && !isDeleted && (
+        {showActions && (
           <div
-            className={`absolute -top-8 ${
-              isOwn ? "right-0" : "left-0"
-            } flex gap-1 bg-background rounded shadow-md p-1 z-10`}
+            className={`absolute top-0 ${
+              isOwn ? "right-full" : "left-full"
+            } flex gap-1 bg-background rounded-sm shadow-md p-1 mx-1 z-10`}
+            onMouseEnter={() => setIsActionBarHovered(true)}
+            onMouseLeave={() => setIsActionBarHovered(false)}
           >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <Smile className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {EMOJI_REACTIONS.map((emoji) => (
-                  <DropdownMenuItem
-                    key={emoji}
-                    onClick={() => onReaction(message._id, emoji)}
-                  >
-                    {emoji}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => onOpenAction()}
+              >
+                <Smile className="h-4 w-4" />
+              </Button>
+              <ReactionPicker
+                isOpen={isActionOpen}
+                isOwn={isOwn}
+                currentUserReaction={currentUserReaction}
+                onOpenChange={(open) => !open && onCloseAction()}
+                onSelect={(emoji) => onReaction(message._id, emoji)}
+              />
+            </div>
 
             {isOwn && (
               <Button
@@ -483,7 +504,7 @@ function MessageBubble({
                 className="h-6 w-6 p-0"
                 onClick={() => onDelete(message._id)}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="text-destructive" />
               </Button>
             )}
           </div>
@@ -542,7 +563,44 @@ function MessageBubble({
   );
 }
 
-// ─── TYPING INDICATOR ────────────────────────────────────────────────────────
+interface ReactionPickerProps {
+  isOpen: boolean;
+  isOwn: boolean;
+  currentUserReaction: string | undefined;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (emoji: string) => void;
+}
+
+function ReactionPicker({
+  isOpen,
+  isOwn,
+  currentUserReaction,
+  onOpenChange,
+  onSelect,
+}: ReactionPickerProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className={`absolute top-full ${isOwn ? "right-0" : "left-0"} mt-2 bg-background rounded-full shadow-lg p-1 flex gap-1 z-20`}
+    >
+      {EMOJI_REACTIONS.map((emoji) => (
+        <button
+          key={emoji}
+          className={`w-7 h-7 flex items-center justify-center rounded-full text-lg transition-colors ${
+            currentUserReaction === emoji ? "bg-primary/20" : "hover:bg-accent"
+          }`}
+          onClick={() => {
+            onSelect(emoji);
+            onOpenChange(false);
+          }}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function TypingMessageBubble() {
   return (
