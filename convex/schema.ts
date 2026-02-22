@@ -22,7 +22,8 @@ export default defineSchema({
     userId: v.id("users"),
     joinedAt: v.number(),
   }).index("by_conversation", ["conversationId"])
-   .index("by_user", ["userId"]),
+   .index("by_user", ["userId"])
+   .index("by_conversation_user", ["conversationId", "userId"]),
 
   messages: defineTable({
     conversationId: v.id("conversations"),

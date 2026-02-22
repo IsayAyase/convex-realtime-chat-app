@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LoadingSpinner } from "@/components/loading";
 import { useGetConversationMembers, useAddGroupMembers, useRemoveGroupMember, useGetConversation, useSearchUsers } from "@/lib/convexHooks";
 import { UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface GroupMembersDialogProps {
   open: boolean;
@@ -49,11 +50,23 @@ export function GroupMembersDialog({
   const availableUsers = users.filter((u: any) => !currentMemberIds.includes(u._id));
 
   const handleAddMember = async (userId: string) => {
-    await addMembers({ conversationId: conversationId as any, memberIds: [userId as any] });
+    try {
+      const user = users.find((u: any) => u._id === userId);
+      await addMembers({ conversationId: conversationId as any, memberIds: [userId as any] });
+      toast.success(`${user?.name || "User"} added to group`);
+    } catch (error) {
+      toast.error("Failed to add member");
+    }
   };
 
   const handleRemoveMember = async (userId: string) => {
-    await removeMember({ conversationId: conversationId as any, memberId: userId as any });
+    try {
+      const member = otherMembers.find((m: any) => m._id === userId);
+      await removeMember({ conversationId: conversationId as any, memberId: userId as any });
+      toast.success(`${member?.name || "User"} removed from group`);
+    } catch (error) {
+      toast.error("Failed to remove member");
+    }
   };
 
   const otherMembers = members?.filter((m: any) => m._id !== currentUserId) || [];
@@ -176,7 +189,7 @@ export function GroupMembersDialog({
                       </div>
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={() => handleAddMember(user._id)}
                       >
                         <UserPlus className="h-4 w-4" />
@@ -211,10 +224,10 @@ export function GroupMembersDialog({
                   </div>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => handleRemoveMember(member._id)}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               ))}

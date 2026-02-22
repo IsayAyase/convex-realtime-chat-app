@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { GroupMembersDialog } from "./GroupMembersDialog";
 import {
   useAddReaction,
   useClearTyping,
@@ -26,9 +25,10 @@ import {
   useSetOnline,
   useSetTyping,
 } from "@/lib/convexHooks";
-import { ArrowLeft, MoreHorizontal, Smile, Trash2 } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Smile, Trash2, Users, UserPlus, UserMinus, Send } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GroupMembersDialog } from "./GroupMembersDialog";
 
 interface ChatWindowProps {
   conversationId: string;
@@ -43,10 +43,14 @@ interface ChatOptionsProps {
   onModeChange: (mode: "view" | "add" | "remove" | null) => void;
 }
 
-function ChatOptions({ conversation, currentUserId, onModeChange }: ChatOptionsProps) {
+function ChatOptions({
+  conversation,
+  currentUserId,
+  onModeChange,
+}: ChatOptionsProps) {
   const isGroup = conversation?.type === "group";
   const isAdmin = conversation?.adminUserId === currentUserId;
-  
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -58,17 +62,21 @@ function ChatOptions({ conversation, currentUserId, onModeChange }: ChatOptionsP
         {isGroup && (
           <>
             <DropdownMenuItem onClick={() => onModeChange("view")}>
+              <Users className="mr-2 h-4 w-4" />
               List People
             </DropdownMenuItem>
             {isAdmin && (
               <>
                 <DropdownMenuItem onClick={() => onModeChange("add")}>
+                  <UserPlus className="h-4 w-4" />
                   Add People
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onModeChange("remove")}>
+                  <UserMinus className="h-4 w-4" />
                   Remove People
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive">
+                  <Trash2 className="h-4 w-4" />
                   Delete Group
                 </DropdownMenuItem>
               </>
@@ -77,6 +85,7 @@ function ChatOptions({ conversation, currentUserId, onModeChange }: ChatOptionsP
         )}
         {!isGroup && (
           <DropdownMenuItem className="text-destructive">
+            <Trash2 className="h-4 w-4" />
             Delete Conversation
           </DropdownMenuItem>
         )}
@@ -128,7 +137,9 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const [openActionMessage, setOpenActionMessage] = useState<string | null>(
     null,
   );
-  const [chatOptionsMode, setChatOptionsMode] = useState<"view" | "add" | "remove" | null>(null);
+  const [chatOptionsMode, setChatOptionsMode] = useState<
+    "view" | "add" | "remove" | null
+  >(null);
   // Track whether this is the very first load so we can auto-scroll to bottom once
   const initialScrollDoneRef = useRef(false);
 
@@ -223,10 +234,10 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   useEffect(() => {
     if (allMessages.length > 0 && scrollRef.current) {
       // Only auto-scroll if user was already near bottom or it's initial load
-      const shouldScroll = 
+      const shouldScroll =
         prevAllMessagesLength.current === 0 || // initial load
         allMessages.length > prevAllMessagesLength.current; // new message added
-      
+
       if (shouldScroll) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
@@ -413,11 +424,17 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                         ? `Last seen ${new Date(otherUserPresence.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                         : "Offline"}
                   </span>
-                  )}
+                )}
+
+              {conversation?.type === "group" && (
+                <span className="text-xs text-muted-foreground">
+                  {members?.length || 0} members
+                </span>
+              )}
             </div>
             <div className="ml-auto">
-              <ChatOptions 
-                conversation={conversation} 
+              <ChatOptions
+                conversation={conversation}
                 currentUserId={currentUserId}
                 onModeChange={setChatOptionsMode}
               />
@@ -460,8 +477,8 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
                       key={`date-${msg._id}`}
                       date={msg.createdAt}
                     />,
-  );
-}
+                  );
+                }
 
                 acc.push(
                   <MessageBubble
@@ -506,7 +523,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
           />
-          <Button onClick={handleSend}>Send</Button>
+          <Button onClick={handleSend} size={'icon'}><Send /></Button>
         </div>
       </div>
 

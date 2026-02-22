@@ -209,8 +209,9 @@ export const removeGroupMember = mutation({
 
     const membership = await ctx.db
       .query("conversationMembers")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
-      .filter((q) => q.eq("userId", args.memberId as string))
+      .withIndex("by_conversation_user", (q) => 
+        q.eq("conversationId", args.conversationId).eq("userId", args.memberId)
+      )
       .first();
 
     if (membership) {
