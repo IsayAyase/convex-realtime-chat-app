@@ -31,6 +31,7 @@ export default defineSchema({
     content: v.string(),
     deleted: v.boolean(),
     createdAt: v.number(),
+    status: v.optional(v.union(v.literal("sent"), v.literal("delivered"), v.literal("read"))),
   }).index("by_conversation", ["conversationId"])
    .index("by_createdAt", ["createdAt"]),
 

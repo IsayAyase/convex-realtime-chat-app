@@ -22,12 +22,13 @@ import {
   useGetReactions,
   useGetTypingUsers,
   useGetUserPresence,
+  useMarkMessagesAsRead,
   useSendMessage,
   useSetOffline,
   useSetOnline,
   useSetTyping,
 } from "@/lib/convexHooks";
-import { ArrowLeft, MoreHorizontal, Smile, Trash2, Users, UserPlus, UserMinus, Send } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Smile, Trash2, Users, UserPlus, UserMinus, Send, Check, CheckCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -219,6 +220,7 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
   const setOffline = useSetOffline();
   const deleteGroup = useDeleteGroup();
   const deleteConversation = useDeleteConversation();
+  const markMessagesAsRead = useMarkMessagesAsRead();
   const router = useRouter();
 
   const handleDeleteConversation = async () => {
@@ -265,6 +267,16 @@ export function ChatWindow({ conversationId, currentUserId }: ChatWindowProps) {
       window.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [setOnline, setOffline]);
+
+  // --- MARK MESSAGES AS READ ------------------------------------------------
+  useEffect(() => {
+    if (currentUserId && conversationId) {
+      markMessagesAsRead({
+        conversationId: conversationId as any,
+        userId: currentUserId as any,
+      });
+    }
+  }, [conversationId, currentUserId, allMessages.length, markMessagesAsRead]);
 
   // --- SCROLL TO BOTTOM ON INITIAL LOAD & NEW MESSAGES --------------------
   const prevAllMessagesLength = useRef(0);
@@ -728,18 +740,26 @@ function MessageBubble({
               ) : (
                 <>
                   <p className="text-sm">{message.content}</p>
-                  <p
-                    className={`text-[10px] text-end ${
-                      isOwn
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {new Date(message.createdAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
+                  <div className="flex items-center justify-end gap-1">
+                    <p
+                      className={`text-[10px] ${
+                        isOwn
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {new Date(message.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    {isOwn && message.status === "read" && (
+                      <CheckCheck className="size-3.5 text-primary-foreground/70" />
+                    )}
+                    {isOwn && message.status !== "read" && (
+                      <Check className="size-3.5 text-primary-foreground/70" />
+                    )}
+                  </div>
                 </>
               )}
             </div>

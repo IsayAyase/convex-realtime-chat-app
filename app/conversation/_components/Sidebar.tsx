@@ -1,18 +1,18 @@
 "use client";
 
 import { LoadingSpinner } from "@/components/loading";
+import { ModeToggle } from "@/components/mode-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGetConversations } from "@/lib/convexHooks";
 import { UserButton } from "@clerk/nextjs";
-import { MessageCircle, Users } from "lucide-react";
+import { MessageSquarePlus, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { CreateConversationDialog } from "./CreateConversationDialog";
-import { ModeToggle } from "@/components/mode-toggle";
 
 interface SidebarProps {
   userId: string;
@@ -112,9 +112,16 @@ function ConversationItem({
             </span>
           )}
         </div>
-        <p className="text-sm text-muted-foreground truncate max-w-60">
-          {conversation.latestMessage?.content || "No messages yet"}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground truncate max-w-60">
+            {conversation.latestMessage?.content || "No messages yet"}
+          </p>
+          {conversation.unreadCount > 0 && (
+            <span className="shrink-0 ml-2 bg-primary text-primary-foreground text-xs font-medium rounded-full min-w-5 h-5 flex items-center justify-center px-1.5">
+              {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );
@@ -189,7 +196,9 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
       className={`${isConversationPage ? "hidden md:block" : "w-full"} md:w-80 border-r flex flex-col h-full relative`}
     >
       <div className="p-4 border-b flex gap-4 items-center justify-between">
-        <h1 className="font-semibold text-4xl">Chats</h1>
+        <Link href={"/"}>
+          <h1 className="font-semibold text-4xl">Chats</h1>
+        </Link>
         <div className="flex gap-4 items-center justify-end">
           <UserButton
             afterSignOutUrl="/"
@@ -252,7 +261,7 @@ export function Sidebar({ userId, currentUser }: SidebarProps) {
         className="absolute bottom-4 right-4 w-10 h-10 rounded-full p-0"
         onClick={() => setShowCreateDialog(true)}
       >
-        <MessageCircle className="w-5 h-5" />
+        <MessageSquarePlus className="w-5 h-5" />
       </Button>
 
       <CreateConversationDialog

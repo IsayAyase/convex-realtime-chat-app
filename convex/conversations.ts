@@ -361,10 +361,18 @@ export const getConversations = query({
           .order("desc")
           .take(1);
 
+        const unreadRecord = await ctx.db
+          .query("unread")
+          .withIndex("by_conversation_user", (q) => 
+            q.eq("conversationId", m.conversationId).eq("userId", userId as Id<"users">)
+          )
+          .first();
+
         allConversations.push({
           ...conv,
           memberUsers,
           latestMessage: latestMessage[0] || null,
+          unreadCount: unreadRecord?.count || 0,
         });
       }
     }

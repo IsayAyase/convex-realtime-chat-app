@@ -79,6 +79,17 @@ export function useGetLatestMessage(conversationId: string) {
   return useQuery(api.messages.getLatestMessage, { conversationId: conversationId as any });
 }
 
+export function useMarkMessagesAsRead() {
+  return useMutation(api.messages.markMessagesAsRead);
+}
+
+export function useGetUnreadCount(conversationId: string, userId: string | undefined) {
+  return useQuery(api.messages.getUnreadCount, { 
+    conversationId: conversationId as any,
+    userId: userId as any 
+  });
+}
+
 // Reaction hooks
 export function useAddReaction() {
   return useMutation(api.reactions.addReaction);
